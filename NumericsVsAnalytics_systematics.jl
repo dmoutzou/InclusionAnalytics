@@ -1,5 +1,6 @@
 using CairoMakie, MathTeXEngine, Printf, Statistics
 using LinearAlgebra, ExactFieldSolutions, StaticArrays
+using JLD2
 
 #Old analytical solution (Duretz)
 #Matrix potentials
@@ -387,86 +388,66 @@ end
     Sxx = -Pt .+ Txx
     Syy = -Pt .+ Tyy
     Szz = -Pt .+ (-Txx .- Tyy)
+
+    V = (x=Vx, y=Vy)
+    S = (xx=Sxx, yy=Syy, zz=Szz, xy=Txy)
+
+    # Errors
+    Ve = ( 
+        x  = abs.(V.x .- Va.x),
+        y  = abs.(V.y .- Va.y),
+    )
+    Pe  = abs.(Pt .- Pa)
+    Se  = (
+        xx = abs.(S.xx .- Sa.xx),
+        yy = abs.(S.yy .- Sa.yy),
+        zz = abs.(S.zz .- Sa.zz),
+        xy = abs.(S.xy .- Sa.xy),
+    )
+    @printf("mean|dVx| = %1.3e   mean|dVy| = %1.3e   mean|dP| = %1.3e   
+        mean|dSxx| = %1.3e   mean|dSyy| = %1.3e   mean|dSzz| = %1.3e   mean|dSzz| = %1.3e\n",
+        mean(abs, Ve.x), mean(abs, Ve.y), mean(abs, Pe),
+        mean(abs, Se.xx), mean(abs, Se.yy), mean(abs, Se.zz), mean(abs, Se.xy))
+    
+    L1 = (Vx=mean(Ve.x), Vy=mean(Ve.y), P=mean(Pe), σxx=mean(Se.xx), σyy=mean(Se.yy), σzz=mean(Se.zz), σxy=mean(Se.xy))
+
     @show iter/ncx
-    return Vx, Vy, Pt, Va, Pa, Sa, xv, yv, xce, yce, xc, yc
+    return L1, V, Pt, S, Va, Pa, Sa, xv, yv, xce, yce, xc, yc
 end
 
-#Compare solutions
+# Compare solutions
 let
-    test        = :Schmid2003   #:Schmid2003 | :Duretz2026_1 | :Duretz2026_2 | :Duretz2026_3
-    formulation = :old             #:old | :new
-    nc          = 400              #resolution
-
+    formulation = :new             #:old | :new
     Lx, Ly = 1.0, 1.0
-    Vx_num, Vy_num, P_num, Va, Pa, Sa, xv, yv, xce, yce, xc, yc =
-        Stokes2D(nc, test; formulation=formulation)
+    nc          = [51, 101, 201, 401]              #resolution
 
-    Δx = Lx/nc;  Δy = Ly/nc
+    tests      = (:Schmid2003, :Duretz2026_1, :Duretz2026_2, :Duretz2026_3)
 
-    #Analytical on the staggered grids (using the same solution that set the BCs)
-    f_anal = formulation == :new ? Analytics_new : Analytics_old
-    bc_params_full = test_params(test)
-    params_bc = (ηm=bc_params_full.ηm, ηi=bc_params_full.ηi,
-                 ξm=bc_params_full.ξm, ξi=bc_params_full.ξm,
-                 ri=bc_params_full.ri,  γ̇=bc_params_full.γ̇,
-                 ε̇=bc_params_full.ε̇,   ζ̇=bc_params_full.ζ̇)
+    L1  = (
+        h   = zeros(length(tests), length(nc)), 
+        Vx  = zeros(length(tests), length(nc)), 
+        Vy  = zeros(length(tests), length(nc)), 
+        P   = zeros(length(tests), length(nc)), 
+        σxx = zeros(length(tests), length(nc)), 
+        σyy = zeros(length(tests), length(nc)), 
+        σzz = zeros(length(tests), length(nc)), 
+        σxy = zeros(length(tests), length(nc))
+    )
 
-    Vx_an = zeros(nc+1, nc+2);  Vy_an = zeros(nc+2, nc+1);  P_an = zeros(nc, nc)
-    for I in CartesianIndices(Vx_an)
-        i, j = I[1], I[2]
-        Vx_an[i,j] = f_anal(@SVector([xv[i]; yce[j]]); params=params_bc).V[1]
-    end
-    for I in CartesianIndices(Vy_an)
-        i, j = I[1], I[2]
-        Vy_an[i,j] = f_anal(@SVector([xce[i]; yv[j]]); params=params_bc).V[2]
-    end
-    for I in CartesianIndices(P_an)
-        i, j = I[1], I[2]
-        P_an[i,j] = f_anal(@SVector([xc[i]; yc[j]]); params=params_bc).p
-    end
+    for itest in eachindex(tests), ires in eachindex(nc)
 
-    dVx = Vx_an .- Vx_num
-    dVy = Vy_an .- Vy_num
-    dP  = P_an  .- P_num 
-
-    # @printf("max|dVx| = %1.3e   max|dVy| = %1.3e   max|dP| = %1.3e\n",
-    #         maximum(abs, dVx), maximum(abs, dVy), maximum(abs, dP))
-    @printf("mean|dVx| = %1.3e   mean|dVy| = %1.3e   mean|dP| = %1.3e\n",
-        mean(abs, dVx), mean(abs, dVy), mean(abs, dP))
-
-    field_data = [
-        ("Vx", xv,  yce, Vx_an, Vx_num, dVx),
-        ("Vy", xce, yv,  Vy_an, Vy_num, dVy),
-        ("P",  xc,  yc,  P_an,  P_num,  dP ),
-    ]
-
-    fig = Figure(size=(1100, 900), fontsize=12)
-    Label(fig[-1, 1:6], "nc=$nc  |  test=$test  |  formulation=$formulation",
-          tellwidth=false, fontsize=15, font=:bold)
-    Label(fig[0, 1:2], "Analytical",  tellwidth=false, fontsize=14, font=:bold)
-    Label(fig[0, 3:4], "Numerical",   tellwidth=false, fontsize=14, font=:bold)
-    Label(fig[0, 5:6], "Difference",  tellwidth=false, fontsize=14, font=:bold)
-
-    for (row, (name, gx, gy, an, num, diff)) in enumerate(field_data)
-        an_c  = an  .- mean(an)
-        num_c = num .- mean(num)
-        dlim  = max(maximum(abs, diff), 1e-12)
-
-        ax1 = Axis(fig[row, 1], aspect=DataAspect(), ylabel=name)
-        hm1 = heatmap!(ax1, gx, gy, an_c;  colormap=(Reverse(:matter), 1))
-        Colorbar(fig[row, 2], hm1, width=12)
-
-        ax2 = Axis(fig[row, 3], aspect=DataAspect())
-        hm2 = heatmap!(ax2, gx, gy, num_c; colormap=(Reverse(:matter), 1))
-        Colorbar(fig[row, 4], hm2, width=12)
-
-        ax3 = Axis(fig[row, 5], aspect=DataAspect())
-        hm3 = heatmap!(ax3, gx, gy, diff;  colormap=(Reverse(:matter), 1))
-        Colorbar(fig[row, 6], hm3, width=12)
+        errors, V, P, S, Va, Pa, Sa, xv, yv, xce, yce, xc, yc =
+        Stokes2D(nc[ires], tests[itest]; formulation=formulation)
+     
+        L1.h[itest, ires]   = Lx/nc[ires]
+        L1.Vx[itest, ires]  = errors.Vx  
+        L1.Vy[itest, ires]  = errors.Vy  
+        L1.P[itest, ires]   = errors.P   
+        L1.σxx[itest, ires] = errors.σxx 
+        L1.σyy[itest, ires] = errors.σyy 
+        L1.σzz[itest, ires] = errors.σzz 
+        L1.σxy[itest, ires] = errors.σxy
     end
 
-    fname = "comparison_nc$(nc)_$(test)_$(formulation).png"
-    save(fname, fig, px_per_unit=2)
-    display(fig)
-    println("Saved: $fname")
+    jldsave("TruncationSystematics.jld2", errors=L1)
 end
