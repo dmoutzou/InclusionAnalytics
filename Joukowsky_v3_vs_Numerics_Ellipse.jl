@@ -15,7 +15,7 @@ function inv_joukowski(z)
 end
 to_zeta(x, y) = (ζ = inv_joukowski(complex(x, y)); @SVector([real(ζ), imag(ζ)]))
 
-#analytical field at PHYSICAL coordinate
+# Analytical field at PHYSICAL coordinate
 f_anal(X; params) = Analytics_new(to_zeta(X[1], X[2]); params=params)
 
 function preset(test)
@@ -37,7 +37,7 @@ function preset(test)
     return (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, t=t, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇, α=α)
 end
 
-#function to acquire the axes of the inclusion based on t (
+# Function to acquire the axes of the inclusion based on t (
 function ellipse_axes(t)
     ri = t_to_ri(t)
     a  = ri + 1.0/ri
@@ -45,7 +45,7 @@ function ellipse_axes(t)
     return a, b
 end
 
-# can be replaced by AD
+# Can be replaced by AD
 function Gershgorin_Stokes2D_SchurComplement(ηc, ηv, γ, Δx, Δy, ncx  ,ncy)
 
     ηN    = ones(ncx-1, ncy)
@@ -164,7 +164,7 @@ end
     # Harmonic averaging mimicking PIC interpolation
     ηc    .= av4_harm(ηv_sharp)
     ηv[2:end-1,2:end-1] .= av4_harm(ηc_sharp)
-    #set viscosity
+    # Set viscosity
     ηb    .= params.ξm
     ηb[(xc./a).^2 .+ (yc'./b).^2 .< 1.0 ] .= params.ξi
 
@@ -380,95 +380,95 @@ end
     return (; Vx, Vy, Pt, Va, Pa, Ve, Pe, Se, Lx, Ly, xv, yv, xc, yc, xce, yce, a, b)
 end
 
-let
-    #test = :Schmid2003
-    #test = :Duretz2026_1
-    #test = :Duretz2026_2
-    test = :Duretz2026_3
+# let
+#     #test = :Schmid2003
+#     #test = :Duretz2026_1
+#     #test = :Duretz2026_2
+#     test = :Duretz2026_3
 
-    nc_list = [501]
-    zoom    = 3.0            # domain half-width = zoom * ellipse semi-major axis a
+#     nc_list = [501]
+#     zoom    = 3.0            # domain half-width = zoom * ellipse semi-major axis a
 
-    # Storage for convergence
-    err_Vx = Float64[]
-    err_Vy = Float64[]
-    err_P  = Float64[]
+#     # Storage for convergence
+#     err_Vx = Float64[]
+#     err_Vy = Float64[]
+#     err_P  = Float64[]
 
-    for nc in nc_list
+#     for nc in nc_list
 
-        num    = Stokes2D(nc, test; zoom=zoom)
-        params = preset(test)
+#         num    = Stokes2D(nc, test; zoom=zoom)
+#         params = preset(test)
 
-        Vx_an = zeros(nc+1, nc+2)
-        Vy_an = zeros(nc+2, nc+1)
-        P_an  = zeros(nc,   nc  )
-        for I in CartesianIndices(Vx_an)
-            i, j = I[1], I[2]
-            sol = f_anal(@SVector([num.xv[i], num.yce[j]]); params=params)
-            Vx_an[i,j] = sol.V[1]
-        end
-        for I in CartesianIndices(Vy_an)
-            i, j = I[1], I[2]
-            sol = f_anal(@SVector([num.xce[i], num.yv[j]]); params=params)
-            Vy_an[i,j] = sol.V[2]
-        end
-        for I in CartesianIndices(P_an)
-            i, j = I[1], I[2]
-            sol = f_anal(@SVector([num.xc[i], num.yc[j]]); params=params)
-            P_an[i,j] = sol.p
-        end
+#         Vx_an = zeros(nc+1, nc+2)
+#         Vy_an = zeros(nc+2, nc+1)
+#         P_an  = zeros(nc,   nc  )
+#         for I in CartesianIndices(Vx_an)
+#             i, j = I[1], I[2]
+#             sol = f_anal(@SVector([num.xv[i], num.yce[j]]); params=params)
+#             Vx_an[i,j] = sol.V[1]
+#         end
+#         for I in CartesianIndices(Vy_an)
+#             i, j = I[1], I[2]
+#             sol = f_anal(@SVector([num.xce[i], num.yv[j]]); params=params)
+#             Vy_an[i,j] = sol.V[2]
+#         end
+#         for I in CartesianIndices(P_an)
+#             i, j = I[1], I[2]
+#             sol = f_anal(@SVector([num.xc[i], num.yc[j]]); params=params)
+#             P_an[i,j] = sol.p
+#         end
 
-        dVx = Vx_an .- num.Vx
-        dVy = Vy_an .- num.Vy
-        dP  = P_an  .- num.Pt
+#         dVx = Vx_an .- num.Vx
+#         dVy = Vy_an .- num.Vy
+#         dP  = P_an  .- num.Pt
 
-        push!(err_Vx, maximum(abs, dVx))
-        push!(err_Vy, maximum(abs, dVy))
-        push!(err_P,  maximum(abs, dP ))
+#         push!(err_Vx, maximum(abs, dVx))
+#         push!(err_Vy, maximum(abs, dVy))
+#         push!(err_P,  maximum(abs, dP ))
 
-        field_data = [
-            ("Vx", num.xv,  num.yce, Vx_an, num.Vx, dVx),
-            ("Vy", num.xce, num.yv,  Vy_an, num.Vy, dVy),
-            ("P",  num.xc,  num.yc,  P_an,  num.Pt, dP ),
-        ]
+#         field_data = [
+#             ("Vx", num.xv,  num.yce, Vx_an, num.Vx, dVx),
+#             ("Vy", num.xce, num.yv,  Vy_an, num.Vy, dVy),
+#             ("P",  num.xc,  num.yc,  P_an,  num.Pt, dP ),
+#         ]
 
-        fig = Figure(size=(1100, 900), fontsize=12)
-        Label(fig[0, 1:2], "Analytical",        tellwidth=false, fontsize=14, font=:bold)
-        Label(fig[0, 3:4], "Numerical",         tellwidth=false, fontsize=14, font=:bold)
-        Label(fig[0, 5:6], "Difference",        tellwidth=false, fontsize=14, font=:bold)
-        Label(fig[-1, 1:6], "nc = $nc  |  test = $test  |  t = $(params.t)", tellwidth=false, fontsize=15, font=:bold)
+#         fig = Figure(size=(1100, 900), fontsize=12)
+#         Label(fig[0, 1:2], "Analytical",        tellwidth=false, fontsize=14, font=:bold)
+#         Label(fig[0, 3:4], "Numerical",         tellwidth=false, fontsize=14, font=:bold)
+#         Label(fig[0, 5:6], "Difference",        tellwidth=false, fontsize=14, font=:bold)
+#         Label(fig[-1, 1:6], "nc = $nc  |  test = $test  |  t = $(params.t)", tellwidth=false, fontsize=15, font=:bold)
 
-        for (row, (name, gx, gy, an, numv, diff)) in enumerate(field_data)
-            an_c  = an   .- mean(an)
-            num_c = numv .- mean(numv)
+#         for (row, (name, gx, gy, an, numv, diff)) in enumerate(field_data)
+#             an_c  = an   .- mean(an)
+#             num_c = numv .- mean(numv)
 
-            ax1 = Axis(fig[row, 1], aspect=DataAspect(), ylabel=name)
-            hm1 = heatmap!(ax1, gx, gy, an_c;  colormap=(Reverse(:matter), 1))
-            Colorbar(fig[row, 2], hm1, width=12)
+#             ax1 = Axis(fig[row, 1], aspect=DataAspect(), ylabel=name)
+#             hm1 = heatmap!(ax1, gx, gy, an_c;  colormap=(Reverse(:matter), 1))
+#             Colorbar(fig[row, 2], hm1, width=12)
 
-            ax2 = Axis(fig[row, 3], aspect=DataAspect())
-            hm2 = heatmap!(ax2, gx, gy, num_c; colormap=(Reverse(:matter), 1))
-            Colorbar(fig[row, 4], hm2, width=12)
+#             ax2 = Axis(fig[row, 3], aspect=DataAspect())
+#             hm2 = heatmap!(ax2, gx, gy, num_c; colormap=(Reverse(:matter), 1))
+#             Colorbar(fig[row, 4], hm2, width=12)
 
-            ax3 = Axis(fig[row, 5], aspect=DataAspect())
-            hm3 = heatmap!(ax3, gx, gy, diff;  colormap=(Reverse(:matter), 1))
-            Colorbar(fig[row, 6], hm3, width=12)
-        end
+#             ax3 = Axis(fig[row, 5], aspect=DataAspect())
+#             hm3 = heatmap!(ax3, gx, gy, diff;  colormap=(Reverse(:matter), 1))
+#             Colorbar(fig[row, 6], hm3, width=12)
+#         end
 
-        save("comparison_JoukowskyDMvsNumerics_nc$(nc)_$(test).png", fig, px_per_unit=2)
-        display(fig)
-        println("nc = $nc done  |  max|dVx|=$(err_Vx[end])  max|dVy|=$(err_Vy[end])  max|dP|=$(err_P[end])")
-    end
+#         save("comparison_JoukowskyDMvsNumerics_nc$(nc)_$(test).png", fig, px_per_unit=2)
+#         display(fig)
+#         println("nc = $nc done  |  max|dVx|=$(err_Vx[end])  max|dVy|=$(err_Vy[end])  max|dP|=$(err_P[end])")
+#     end
 
-end
+# end
 
-#=
+
 # Convergence study: mean error vs resolution for all four tests
 
 let
     tests   = [:Schmid2003, :Duretz2026_1, :Duretz2026_2, :Duretz2026_3]
     titles  = ["Test 1", "Test 2", "Test 3", "Test 4"]
-    nc_list = [50 100 1000]
+    nc_list = [51, 101, 201, 401] 
     zoom    = 3.0
 
     fields = [
@@ -527,4 +527,3 @@ let
     save("convergence_JoukowskyDMvsNumerics_v2.png", fig, px_per_unit = 2)
     display(fig)
 end
-=#
