@@ -1,9 +1,9 @@
 using CairoMakie
 
 #Physical parameters
-ηm = 1.0;  ηi = 0.1
-ξm = 1.0;  ξi = 1.0
-ri = 0.1;  γ̇ = 5.0;  ε̇ = -1.0;  ζ̇ = 0.0
+ηm = 1.0;  ηi = 0.01
+ξm = 1e-2;  ξi = 1e-2
+ri = 0.1;  γ̇ = 0.0;  ε̇ = -1.0;  ζ̇ = 0.0
 #Kolosov constants
 νm = (3ξm - 2ηm) / (2*(3ξm + ηm))
 νi = (3ξi - 2ηi) / (2*(3ξi + ηi))
