@@ -146,10 +146,10 @@ end
     xc, yc   = LinRange(-Lx/2+Δx/2, Lx/2-Δx/2, ncx), LinRange(-Ly/2+Δy/2, Ly/2-Δy/2, ncy)
     xv, yv   = LinRange(-Lx/2, Lx/2, ncx+1), LinRange(-Ly/2, Ly/2, ncy+1)
     # Material heterogeneity: circular inclusion 
-    # ηv_sharp   .= ηm
-    # ηv_sharp[(xv).^2 .+ (yv').^2 .< ri^2 ] .= ηi
-    # ηc_sharp   .= ηm
-    # ηc_sharp[(xc).^2 .+ (yc').^2 .< ri^2 ] .= ηi
+    ηv_sharp   .= ηm
+    ηv_sharp[(xv).^2 .+ (yv').^2 .< ri^2 ] .= ηi
+    ηc_sharp   .= ηm
+    ηc_sharp[(xc).^2 .+ (yc').^2 .< ri^2 ] .= ηi
     # Use sharp viscosity
     ηc .= ηc_sharp
     ηv .= ηv_sharp
@@ -441,11 +441,11 @@ end
 let 
 
     # test = :Schmid2003
-    # test = :Duretz2026_1   
+    test = :Duretz2026_1   
     # test = :Duretz2026_2
-    test = :Duretz2026_3
+    # test = :Duretz2026_3
 
-    nc = [51 101 201 401]
+    nc = [101]#[51 101 201 401]
     L1  = (
         Vx  = zeros(length(nc)), 
         Vy  = zeros(length(nc)), 
