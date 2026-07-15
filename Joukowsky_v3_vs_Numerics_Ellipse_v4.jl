@@ -90,7 +90,7 @@ end
 #2D Stokes solve on the real physical coordinate grid
 #zoom controls how much matrix
 # material surrounds the ellipse (domain half-width = zoom * a).
-@views function Stokes2D(n, test; zoom = 3.0, BC_anal=true)
+@views function Stokes2D(n, test; zoom = 3.0, BC_anal=true, stress_BC_W=true)
 
     #Pull the same physical parameters
     @info "($test)"
@@ -110,7 +110,7 @@ end
     # Numerics
     ncx, ncy = n, n         # numerical grid resolution
     ϵ        = 1e-7         # tolerance
-    iterMax  = 1e5          # max number of iters
+    iterMax  = 1e4          # max number of iters
     nout     = 100          # check frequency
     c_fact   = 0.5          # damping factor
     C        = 0.99
@@ -125,7 +125,7 @@ end
     ∇V       = zeros(ncx  ,ncy  )
     Vx       = zeros(ncx+1,ncy+2)
     Vy       = zeros(ncx+2,ncy+1)
-    dVx      = zeros(ncx-1,ncy  )
+    dVx      = zeros(ncx+1,ncy  )
     dVy      = zeros(ncx  ,ncy-1)
     Exx      = zeros(ncx  ,ncy  )
     Eyy      = zeros(ncx  ,ncy  )
@@ -136,18 +136,18 @@ end
     Sxx      = zeros(ncx  ,ncy  )
     Syy      = zeros(ncx  ,ncy  )
     Szz      = zeros(ncx  ,ncy  )
-    Rx       = zeros(ncx-1,ncy  )
+    Rx       = zeros(ncx+1,ncy  )
     Ry       = zeros(ncx  ,ncy-1)
     Rp       = zeros(ncx  ,ncy  )
-    Rx0      = zeros(ncx-1,ncy  )
+    Rx0      = zeros(ncx+1,ncy  )
     Ry0      = zeros(ncx  ,ncy-1)
-    dVxdτ    = zeros(ncx-1,ncy  )
+    dVxdτ    = zeros(ncx+1,ncy  )
     dVydτ    = zeros(ncx  ,ncy-1)
-    βVx      = zeros(ncx-1,ncy  )
+    βVx      = zeros(ncx+1,ncy  )
     βVy      = zeros(ncx  ,ncy-1)
-    cVx      = zeros(ncx-1,ncy  )  # this disappears is dτ is not local
+    cVx      = zeros(ncx+1,ncy  )  # this disappears is dτ is not local
     cVy      = zeros(ncx  ,ncy-1)  # this disappears is dτ is not local
-    αVx      = zeros(ncx-1,ncy  )  # this disappears is dτ is not local
+    αVx      = zeros(ncx+1,ncy  )  # this disappears is dτ is not local
     αVy      = zeros(ncx  ,ncy-1)  # this disappears is dτ is not local
     ηb       = zeros(ncx  ,ncy  )
     ηc       = ηm .* ones(ncx  ,ncy  )
@@ -197,7 +197,10 @@ end
     ##########################################
 
     # Optimal pseudo-time steps - can be replaced by AD
-    Dx, Dy, λmaxVx, λmaxVy = Gershgorin_Stokes2D_SchurComplement(ηc, ηv, γ_eff, Δx, Δy, ncx ,ncy)
+    Dx_inner, Dy, λmaxVx, λmaxVy = Gershgorin_Stokes2D_SchurComplement(ηc, ηv, γ_eff, Δx, Δy, ncx ,ncy)
+    Dx       = zeros(ncx+1, ncy)
+    Dx[2:end-1,:] .= Dx_inner
+    Dx[[1, end],:] .= Dx[[2, end-1],:] 
     # Select dτ
     if dτ_local
         dτVx =  2.0./sqrt.(λmaxVx)*C
@@ -221,12 +224,15 @@ end
         x = zeros(ncx+1, ncy+2),
         y = zeros(ncx+2, ncy+1)
     )
+    SxxVx = zero(Vx)
+    Sxx_e = zeros(ncx+2, ncy)
     # Boundary conditions: normal component
     @time for I in CartesianIndices(Vx)
         i, j      = I[1], I[2]
         X         = @SVector([xv[i]; yce[j]])
         sol       = f_anal(X; params=params)
         Vx[i,j]   = BC_anal ? sol.V[1] : ε̇.*xv[i]
+        SxxVx[i,j] = sol.τ[1,1] - sol.p
         Va.x[i,j] = sol.V[1]
     end
     for I in CartesianIndices(Vy)
@@ -259,6 +265,9 @@ end
         VyE[j] = sol.V[2]
     end
 
+    # Stress BC
+    iW = stress_BC_W ? 0 : 1
+
     Pa = zeros(ncx, ncy)
     Sa = (
         xx = zeros(ncx, ncy),
@@ -283,6 +292,7 @@ end
         Sa.xy[i,j]  = sol.τ[1,2]
     end
 
+
     # Iteration loop
     errVx0 = 1.0;  errVy0 = 1.0;  errPt0 = 1.0
     errVx00= 1.0;  errVy00= 1.0;
@@ -303,12 +313,15 @@ end
         Txx   .= 2.0.*ηc.*Exx
         Tyy   .= 2.0.*ηc.*Eyy
         Txy   .= 2.0.*ηv.*Exy
+        # Stress BC
+        Sxx_e[2:end-1,:] .= Txx .- Pt
+        Sxx_e[1,:] = 2*SxxVx[1,2:end-1] .- Sxx_e[2,:]
         # Residuals
-        Rx    .= (.-(Pt[2:end,:] .- Pt[1:end-1,:])./Δx .+ (Txx[2:end,:] .- Txx[1:end-1,:])./Δx .+ (Txy[2:end-1,2:end] .- Txy[2:end-1,1:end-1])./Δy)
+        Rx[1+iW:end-1,:] .= ((Sxx_e[2+iW:end-1,:] .- Sxx_e[1+iW:end-2,:])./Δx .+ (Txy[1+iW:end-1,2:end] .- Txy[1+iW:end-1,1:end-1])./Δy)
         Ry    .= (.-(Pt[:,2:end] .- Pt[:,1:end-1])./Δy .+ (Tyy[:,2:end] .- Tyy[:,1:end-1])./Δy .+ (Txy[2:end,2:end-1] .- Txy[1:end-1,2:end-1])./Δx)
         Rp    .= .-∇V .- comp*Pt./ηb
         # Residual check
-        errVx = norm(Rx); errVy = norm(Ry); errPt = norm(Rp .- mean(Rp))
+        errVx = norm(Rx); errVy = norm(Ry); errPt = norm(Rp .- 0*mean(Rp))
         if itPH==1 errVx0=errVx; errVy0=errVy; errPt0=errPt; end
         err = maximum([errVx/errVx0, errVy/errVy0, errPt/errPt0])
         @printf("itPH = %02d iter = %06d iter/nx = %03d, err = %1.3e\n        norm[Rx=%1.3e, Ry=%1.3e, Rp=%1.3e] \n        norm[Rx=%1.3e, Ry=%1.3e, Rp=%1.3e]\n", itPH, iter, iter/ncx, err, errVx/errVx0, errVy/errVy0, errPt/errPt0, errVx, errVy, errPt)
@@ -338,18 +351,21 @@ end
             Txx   .= 2.0.*ηc.*Exx .- γ_eff .* Rp
             Tyy   .= 2.0.*ηc.*Eyy .- γ_eff .* Rp
             Txy   .= 2.0.*ηv.*Exy
+            # Stress BC
+            Sxx_e[2:end-1,:] .= Txx .- Pt
+            Sxx_e[1,:] = 2*SxxVx[1,2:end-1] .- Sxx_e[2,:]
             # Residuals
-            Rx    .= (1.0./Dx).*(.-(Pt[2:end,:] .- Pt[1:end-1,:])./Δx .+ (Txx[2:end,:] .- Txx[1:end-1,:])./Δx .+ (Txy[2:end-1,2:end] .- Txy[2:end-1,1:end-1])./Δy)
-            Ry    .= (1.0./Dy).*(.-(Pt[:,2:end] .- Pt[:,1:end-1])./Δy .+ (Tyy[:,2:end] .- Tyy[:,1:end-1])./Δy .+ (Txy[2:end,2:end-1] .- Txy[1:end-1,2:end-1])./Δx)
+            Rx[1+iW:end-1,:] .= (1.0./Dx[1+iW:end-1,:]).*((Sxx_e[2+iW:end-1,:] .- Sxx_e[1+iW:end-2,:])./Δx .+ (Txy[1+iW:end-1,2:end] .- Txy[1+iW:end-1,1:end-1])./Δy)
+            Ry            .= (1.0./Dy).*(.-(Pt[:,2:end] .- Pt[:,1:end-1])./Δy .+ (Tyy[:,2:end] .- Tyy[:,1:end-1])./Δy .+ (Txy[2:end,2:end-1] .- Txy[1:end-1,2:end-1])./Δx)
             # Damping-pong
             dVxdτ .= αVx.*dVxdτ .+ Rx
             dVydτ .= αVy.*dVydτ .+ Ry
             # PT updates
-            Vx[2:end-1,2:end-1] .+= dVxdτ.*βVx.*dτVx
+            Vx[1+iW:end-1,2:end-1] .+= dVxdτ[1+iW:end-1,:].*βVx[1+iW:end-1,:].*dτVx
             Vy[2:end-1,2:end-1] .+= dVydτ.*βVy.*dτVy
             # Residual check
             if mod(iter, nout)==0
-                errVx = norm(Dx.*Rx); errVy = norm(Dy.*Ry)
+                errVx = norm(Dx[2:end-1,:].*Rx[2:end-1,:]); errVy = norm(Dy.*Ry)
                 if iter==nout errVx00=errVx; errVy00=errVy; end
                 err = maximum([min(errVx, errVx./errVx00), min(errVy, errVy./errVy00)])
                 push!(err_evo_V, errVx/errVx00); push!(err_evo_P, errPt/errPt0); push!(err_evo_it, itg)
