@@ -163,7 +163,7 @@ end
     Lx, Ly   = 2*zoom*a, 2*zoom*a
     # Numerics
     ncx, ncy = n, n         # numerical grid resolution
-    ϵ        = 1e-7         # tolerance
+    ϵ        = 1e-9         # tolerance
     iterMax  = 1e5          # max number of iters
     nout     = 100          # check frequency
     c_fact   = 0.5          # damping factor
@@ -287,6 +287,10 @@ end
         Vy[i,j]   = BC_anal ? sol.V[2] : -ε̇.*yv[j]
         Va.y[i,j] = sol.V[2]
     end
+    # Integrate mass flux
+    net_Δmass =  sum(Vx[1,2:end-1]*Δy) + sum(Vx[end,2:end-1]*Δy) + sum(Vy[2:end-1,1]*Δx)  + sum(Vy[2:end-1,end]*Δx)
+    @info "net_Δmass = $(@sprintf("%1.2e\n", net_Δmass))"
+    # Ensure non zero initial pressure residual
     Vx[2:end-1,:] .= 0 # ensure non zero initial pressure residual
     Vy[:,2:end-1] .= 0 # ensure non zero initial pressure residual
     # Boundary conditions: tangential component
@@ -338,6 +342,8 @@ end
     iter=1; err=2*ϵ; err_evo_V=[]; err_evo_P=[]; err_evo_it=[]
     @time for itPH = 1:50
         # Boundaries
+        # Vx[:,1] .= Vx[:,2]; Vx[:,end] .= Vx[:,end-1]
+        # Vy[1,:] .= Vy[2,:]; Vy[end,:] .= Vy[end-1,:]
         Vx[:,1] .= 2*VxS .- Vx[:,2]; Vx[:,end] .= 2*VxN .- Vx[:,end-1]
         Vy[1,:] .= 2*VyW .- Vy[2,:]; Vy[end,:] .= 2*VyE .- Vy[end-1,:]
         # Divergence
@@ -354,7 +360,9 @@ end
         Rx    .= (.-(Pt[2:end,:] .- Pt[1:end-1,:])./Δx .+ (Txx[2:end,:] .- Txx[1:end-1,:])./Δx .+ (Txy[2:end-1,2:end] .- Txy[2:end-1,1:end-1])./Δy)
         Ry    .= (.-(Pt[:,2:end] .- Pt[:,1:end-1])./Δy .+ (Tyy[:,2:end] .- Tyy[:,1:end-1])./Δy .+ (Txy[2:end,2:end-1] .- Txy[1:end-1,2:end-1])./Δx)
         Rp    .= .-∇V .- comp*Pt./ηb
+        Rp   .-= mean(Rp) 
         # Residual check
+        # @show extrema(Rp)
         errVx = norm(Rx); errVy = norm(Ry); errPt = norm(Rp)
         if itPH==1 errVx0=errVx; errVy0=errVy; errPt0=errPt; end
         err = maximum([errVx/errVx0, errVy/errVy0, errPt/errPt0])
@@ -436,7 +444,7 @@ let
     #test = :Schmid_3
 
     nc_list = [101]
-    zoom    =  1.5 #3.0            # domain half-width = zoom * ellipse semi-major axis a
+    zoom    =  1*1.5 #3.0            # domain half-width = zoom * ellipse semi-major axis a
 
     # Storage for convergence
     err_Vx = Float64[]
@@ -445,7 +453,7 @@ let
 
     for nc in nc_list
 
-        num    = Stokes2D(nc, test; zoom=zoom, BC_anal=false)
+        num    = Stokes2D(nc, test; zoom=zoom, BC_anal=true)
         params = preset(test)
 
         push!(err_Vx, maximum(abs, num.Ve.x))
@@ -460,8 +468,8 @@ let
 
         fig = Figure(size=(1100, 900), fontsize=12)
         Label(fig[0, 1:2], "Analytical (Schmid2003)", tellwidth=false, fontsize=14, font=:bold)
-        Label(fig[0, 3:4], "Numerical",                tellwidth=false, fontsize=14, font=:bold)
-        Label(fig[0, 5:6], "Difference",                tellwidth=false, fontsize=14, font=:bold)
+        Label(fig[0, 3:4], "Numerical",               tellwidth=false, fontsize=14, font=:bold)
+        Label(fig[0, 5:6], "Difference",              tellwidth=false, fontsize=14, font=:bold)
         Label(fig[-1, 1:6], "nc = $nc  |  test = $test  |  t = $(params.t)", tellwidth=false, fontsize=15, font=:bold)
 
         for (row, (name, gx, gy, an, numv, diff)) in enumerate(field_data)
@@ -473,7 +481,7 @@ let
             Colorbar(fig[row, 2], hm1, width=12)
 
             ax2 = Axis(fig[row, 3], aspect=DataAspect())
-            hm2 = heatmap!(ax2, gx, gy, num_c; colormap=(Reverse(:matter), 1))
+            hm2 = heatmap!(ax2, gx, gy, num_c; colormap=(Reverse(:matter), 1), colorrange=extrema(an_c))
             Colorbar(fig[row, 4], hm2, width=12)
 
             ax3 = Axis(fig[row, 5], aspect=DataAspect())
