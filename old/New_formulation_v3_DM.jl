@@ -1,9 +1,15 @@
 using CairoMakie
 
 #Physical parameters
+<<<<<<< Updated upstream:old/New_formulation_v3_DM.jl
 ηm = 1.0;  ηi = 0.01
 ξm = 1e-2;  ξi = 1e-2
 ri = 0.1;  γ̇ = 0.0;  ε̇ = -1.0;  ζ̇ = 0.0
+=======
+ηm = 1.0;  ηi = 0.1
+ξm = 1.0;  ξi = 1.0
+ri = 0.1;  γ̇ = 0.0;  ε̇ = 1e-10;  ζ̇ = 1.0
+>>>>>>> Stashed changes:New_formulation_v3_DM.jl
 #Kolosov constants
 νm = (3ξm - 2ηm) / (2*(3ξm + ηm))
 νi = (3ξi - 2ηi) / (2*(3ξi + ηi))
@@ -63,7 +69,7 @@ function Analytical_Solution_new(x, y)
     return p, real(vel), imag(vel), sxx, syy, sxy
 end
 #Spatial grid
-n  = 300
+n  = 500
 x  = LinRange(-0.5, 0.5, n)
 y  = LinRange(-0.5, 0.5, n)
 P  = zeros(n,n)

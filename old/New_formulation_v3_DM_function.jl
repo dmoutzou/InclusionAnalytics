@@ -56,9 +56,9 @@ function Analytical_Solution_new(x, y, test)
         ε̇ =-1e0;  γ̇ = 0.0;  ζ̇ = 0.0;  ri = 0.1
     elseif test == :Duretz2026_2
         ηm, ηi = 1.0, 1e-1;  ξm, ξi = 1e0, 1e0
-        ε̇ = 1e-10;  γ̇ = 0.0;  ζ̇ = 1e0;  ri = 0.1
+        ε̇ = 1e-10;  γ̇ = 1.0;  ζ̇ = 1e0;  ri = 0.1
     elseif test == :Duretz2026_3
-        ηm, ηi = 1.0, 1e-1;  ξm, ξi = 1e2, 1e2
+        ηm, ηi = 1.0, 1e-1;  ξm, ξi = 1.0, 1.0
         ε̇ = 1e-10;  γ̇ = 1.0;  ζ̇ = 1e0;  ri = 0.1
     end
     params = (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, ri=ri, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇)

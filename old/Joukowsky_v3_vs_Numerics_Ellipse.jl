@@ -93,10 +93,12 @@ end
 @views function Stokes2D(n, test; zoom = 3.0)
 
     #Pull the same physical parameters
+    @info "($test)"
     params   = preset(test)
     ηm       = params.ηm
     γ̇, ε̇, ζ̇ = params.γ̇, params.ε̇, params.ζ̇
     a, b     = ellipse_axes(params.t)   # true physical semi-axes of the inclusion
+    # a, b = 0.1, 0.1
     comp     = true         # keep true :D
     one_iter = false        # true: simple DR --- false: PH/DR
 
@@ -105,15 +107,18 @@ end
         params = merge(params, (ξm = 1e100*params.ξm, ξi = 1e100*params.ξi))
     end
     Lx, Ly   = 2*zoom*a, 2*zoom*a
+    # Lx, Ly   = 1.0, 1.0
     # Numerics
     ncx, ncy = n, n         # numerical grid resolution
     ϵ        = 1e-7         # tolerance
     iterMax  = 1e5          # max number of iters
     nout     = 100          # check frequency
     c_fact   = 0.5          # damping factor
-    dτ_local = true         # helps a little bit sometimes, sometimes not!
-    γfact    = 60           # penalty: multiplier to the arithmetic mean of η
-    rel_drop = 1e-3         # relative drop of velocity residual per PH iteration
+    C        = 0.99
+    dτ_local = false         # helps a little bit sometimes, sometimes not!
+    γfact    = 5             # penalty: multiplier to the arithmetic mean of η
+    rel_drop = 1e-3          # relative drop of velocity residual per PH iteration
+    nPH      = 100
     # Preprocessing
     Δx, Δy  = Lx/ncx, Ly/ncy
     # Array initialisation
@@ -196,11 +201,11 @@ end
     Dx, Dy, λmaxVx, λmaxVy = Gershgorin_Stokes2D_SchurComplement(ηc, ηv, γ_eff, Δx, Δy, ncx ,ncy)
     # Select dτ
     if dτ_local
-        dτVx =  2.0./sqrt.(λmaxVx)*0.99
-        dτVy =  2.0./sqrt.(λmaxVy)*0.99
+        dτVx =  2.0./sqrt.(λmaxVx)*C
+        dτVy =  2.0./sqrt.(λmaxVy)*C
     else
-        dτVx =  2.0./sqrt.(maximum(λmaxVx))*0.99
-        dτVy =  2.0./sqrt.(maximum(λmaxVy))*0.99
+        dτVx =  2.0./sqrt.(maximum(λmaxVx))*C
+        dτVy =  2.0./sqrt.(maximum(λmaxVy))*C
     end
     βVx .= 2 .* dτVx ./ (2 .+ cVx.*dτVx)
     βVy .= 2 .* dτVy ./ (2 .+ cVy.*dτVy)
@@ -221,6 +226,7 @@ end
         i, j      = I[1], I[2]
         X         = @SVector([xv[i]; yce[j]])
         sol       = f_anal(X; params=params)
+        # Vx[i,j]   = ε̇.*xv[i]
         Vx[i,j]   = sol.V[1]
         Va.x[i,j] = sol.V[1]
     end
@@ -229,11 +235,14 @@ end
         i, j      = I[1], I[2]
         X         = @SVector([xce[i]; yv[j]])
         sol       = f_anal(X; params=params)
+        # Vy[i,j]   = -ε̇.*yv[j]
         Vy[i,j]   = sol.V[2]
         Va.y[i,j] = sol.V[2]
     end
+    Vx[2:end-1,:] .= 0 # ensure non zero initial pressure residual
+    Vy[:,2:end-1] .= 0 # ensure non zero initial pressure residual
 
-    #boundary conditions
+    # boundary conditions
     VxS, VxN = zeros(size(Vx,1)), zeros(size(Vx,1))
     for i in eachindex(VxS)
         X      = @SVector([xv[i]; -Ly/2])
@@ -282,10 +291,12 @@ end
     errVx0 = 1.0;  errVy0 = 1.0;  errPt0 = 1.0
     errVx00= 1.0;  errVy00= 1.0;
     iter=1; err=2*ϵ; err_evo_V=[]; err_evo_P=[]; err_evo_it=[]
-    @time for itPH = 1:50
+    @time for itPH = 1:nPH
         # Boundaries
         Vx[:,1] .= 2*VxS .- Vx[:,2]; Vx[:,end] .= 2*VxN .- Vx[:,end-1]
         Vy[1,:] .= 2*VyW .- Vy[2,:]; Vy[end,:] .= 2*VyE .- Vy[end-1,:]
+        # Vx[:,1] .= Vx[:,2]; Vx[:,end] .= Vx[:,end-1]
+        # Vy[1,:] .= Vy[2,:]; Vy[end,:] .= Vy[end-1,:]
         # Divergence
         ∇V    .= (Vx[2:end,2:end-1] .- Vx[1:end-1,2:end-1])./Δx .+ (Vy[2:end-1,2:end] .- Vy[2:end-1,1:end-1])./Δy
         # Deviatoric strain rate
@@ -304,7 +315,7 @@ end
         errVx = norm(Rx); errVy = norm(Ry); errPt = norm(Rp)
         if itPH==1 errVx0=errVx; errVy0=errVy; errPt0=errPt; end
         err = maximum([errVx/errVx0, errVy/errVy0, errPt/errPt0])
-        @printf("itPH = %02d iter = %06d iter/nx = %03d, err = %1.3e norm[Rx=%1.3e, Ry=%1.3e, Rp=%1.3e] \n", itPH, iter, iter/ncx, err, errVx/errVx0, errVy/errVy0, errPt/errPt0)
+        @printf("itPH = %02d iter = %06d iter/nx = %03d, err = %1.3e\n        norm[Rx=%1.3e, Ry=%1.3e, Rp=%1.3e] \n        norm[Rx=%1.3e, Ry=%1.3e, Rp=%1.3e]\n", itPH, iter, iter/ncx, err, errVx/errVx0, errVy/errVy0, errPt/errPt0, errVx, errVy, errPt)
         if (err<ϵ) break end
         # Set tolerance of velocity solve proportional to residual
         ϵ_vel = err*rel_drop
@@ -376,100 +387,101 @@ end
         zz = abs.(Szz .- Sa.zz),
         xy = abs.(Txy .- Sa.xy),
     )
+
     @show iter/ncx
     return (; Vx, Vy, Pt, Va, Pa, Ve, Pe, Se, Lx, Ly, xv, yv, xc, yc, xce, yce, a, b)
 end
 
-# let
-#     #test = :Schmid2003
-#     #test = :Duretz2026_1
-#     #test = :Duretz2026_2
-#     test = :Duretz2026_3
+let
+    test = :Schmid2003
+    #test = :Duretz2026_1
+    #test = :Duretz2026_2
+    #test = :Duretz2026_3
 
-#     nc_list = [501]
-#     zoom    = 3.0            # domain half-width = zoom * ellipse semi-major axis a
+    nc_list = [501]
+    zoom    = 3.0            # domain half-width = zoom * ellipse semi-major axis a
 
-#     # Storage for convergence
-#     err_Vx = Float64[]
-#     err_Vy = Float64[]
-#     err_P  = Float64[]
+    # Storage for convergence
+    err_Vx = Float64[]
+    err_Vy = Float64[]
+    err_P  = Float64[]
 
-#     for nc in nc_list
+    for nc in nc_list
 
-#         num    = Stokes2D(nc, test; zoom=zoom)
-#         params = preset(test)
+        num    = Stokes2D(nc, test; zoom=zoom)
+        params = preset(test)
 
-#         Vx_an = zeros(nc+1, nc+2)
-#         Vy_an = zeros(nc+2, nc+1)
-#         P_an  = zeros(nc,   nc  )
-#         for I in CartesianIndices(Vx_an)
-#             i, j = I[1], I[2]
-#             sol = f_anal(@SVector([num.xv[i], num.yce[j]]); params=params)
-#             Vx_an[i,j] = sol.V[1]
-#         end
-#         for I in CartesianIndices(Vy_an)
-#             i, j = I[1], I[2]
-#             sol = f_anal(@SVector([num.xce[i], num.yv[j]]); params=params)
-#             Vy_an[i,j] = sol.V[2]
-#         end
-#         for I in CartesianIndices(P_an)
-#             i, j = I[1], I[2]
-#             sol = f_anal(@SVector([num.xc[i], num.yc[j]]); params=params)
-#             P_an[i,j] = sol.p
-#         end
+        Vx_an = zeros(nc+1, nc+2)
+        Vy_an = zeros(nc+2, nc+1)
+        P_an  = zeros(nc,   nc  )
+        for I in CartesianIndices(Vx_an)
+            i, j = I[1], I[2]
+            sol = f_anal(@SVector([num.xv[i], num.yce[j]]); params=params)
+            Vx_an[i,j] = sol.V[1]
+        end
+        for I in CartesianIndices(Vy_an)
+            i, j = I[1], I[2]
+            sol = f_anal(@SVector([num.xce[i], num.yv[j]]); params=params)
+            Vy_an[i,j] = sol.V[2]
+        end
+        for I in CartesianIndices(P_an)
+            i, j = I[1], I[2]
+            sol = f_anal(@SVector([num.xc[i], num.yc[j]]); params=params)
+            P_an[i,j] = sol.p
+        end
 
-#         dVx = Vx_an .- num.Vx
-#         dVy = Vy_an .- num.Vy
-#         dP  = P_an  .- num.Pt
+        dVx = Vx_an .- num.Vx
+        dVy = Vy_an .- num.Vy
+        dP  = P_an  .- num.Pt
 
-#         push!(err_Vx, maximum(abs, dVx))
-#         push!(err_Vy, maximum(abs, dVy))
-#         push!(err_P,  maximum(abs, dP ))
+        push!(err_Vx, maximum(abs, dVx))
+        push!(err_Vy, maximum(abs, dVy))
+        push!(err_P,  maximum(abs, dP ))
 
-#         field_data = [
-#             ("Vx", num.xv,  num.yce, Vx_an, num.Vx, dVx),
-#             ("Vy", num.xce, num.yv,  Vy_an, num.Vy, dVy),
-#             ("P",  num.xc,  num.yc,  P_an,  num.Pt, dP ),
-#         ]
+        field_data = [
+            ("Vx", num.xv,  num.yce, Vx_an, num.Vx, dVx),
+            ("Vy", num.xce, num.yv,  Vy_an, num.Vy, dVy),
+            ("P",  num.xc,  num.yc,  P_an,  num.Pt, dP ),
+        ]
 
-#         fig = Figure(size=(1100, 900), fontsize=12)
-#         Label(fig[0, 1:2], "Analytical",        tellwidth=false, fontsize=14, font=:bold)
-#         Label(fig[0, 3:4], "Numerical",         tellwidth=false, fontsize=14, font=:bold)
-#         Label(fig[0, 5:6], "Difference",        tellwidth=false, fontsize=14, font=:bold)
-#         Label(fig[-1, 1:6], "nc = $nc  |  test = $test  |  t = $(params.t)", tellwidth=false, fontsize=15, font=:bold)
+        fig = Figure(size=(1100, 900), fontsize=12)
+        Label(fig[0, 1:2], "Analytical",        tellwidth=false, fontsize=14, font=:bold)
+        Label(fig[0, 3:4], "Numerical",         tellwidth=false, fontsize=14, font=:bold)
+        Label(fig[0, 5:6], "Difference",        tellwidth=false, fontsize=14, font=:bold)
+        Label(fig[-1, 1:6], "nc = $nc  |  test = $test  |  t = $(params.t)", tellwidth=false, fontsize=15, font=:bold)
 
-#         for (row, (name, gx, gy, an, numv, diff)) in enumerate(field_data)
-#             an_c  = an   .- mean(an)
-#             num_c = numv .- mean(numv)
+        for (row, (name, gx, gy, an, numv, diff)) in enumerate(field_data)
+            an_c  = an   .- mean(an)
+            num_c = numv .- mean(numv)
 
-#             ax1 = Axis(fig[row, 1], aspect=DataAspect(), ylabel=name)
-#             hm1 = heatmap!(ax1, gx, gy, an_c;  colormap=(Reverse(:matter), 1))
-#             Colorbar(fig[row, 2], hm1, width=12)
+            ax1 = Axis(fig[row, 1], aspect=DataAspect(), ylabel=name)
+            hm1 = heatmap!(ax1, gx, gy, an_c;  colormap=(Reverse(:matter), 1))
+            Colorbar(fig[row, 2], hm1, width=12)
 
-#             ax2 = Axis(fig[row, 3], aspect=DataAspect())
-#             hm2 = heatmap!(ax2, gx, gy, num_c; colormap=(Reverse(:matter), 1))
-#             Colorbar(fig[row, 4], hm2, width=12)
+            ax2 = Axis(fig[row, 3], aspect=DataAspect())
+            hm2 = heatmap!(ax2, gx, gy, num_c; colormap=(Reverse(:matter), 1))
+            Colorbar(fig[row, 4], hm2, width=12)
 
-#             ax3 = Axis(fig[row, 5], aspect=DataAspect())
-#             hm3 = heatmap!(ax3, gx, gy, diff;  colormap=(Reverse(:matter), 1))
-#             Colorbar(fig[row, 6], hm3, width=12)
-#         end
+            ax3 = Axis(fig[row, 5], aspect=DataAspect())
+            hm3 = heatmap!(ax3, gx, gy, diff;  colormap=(Reverse(:matter), 1))
+            Colorbar(fig[row, 6], hm3, width=12)
+        end
 
-#         save("comparison_JoukowskyDMvsNumerics_nc$(nc)_$(test).png", fig, px_per_unit=2)
-#         display(fig)
-#         println("nc = $nc done  |  max|dVx|=$(err_Vx[end])  max|dVy|=$(err_Vy[end])  max|dP|=$(err_P[end])")
-#     end
+        save("comparison_JoukowskyDMvsNumerics_nc$(nc)_$(test).png", fig, px_per_unit=2)
+        display(fig)
+        println("nc = $nc done  |  max|dVx|=$(err_Vx[end])  max|dVy|=$(err_Vy[end])  max|dP|=$(err_P[end])")
+    end
 
-# end
+end
 
 
 # Convergence study: mean error vs resolution for all four tests
-
+#=
 let
-    tests   = [:Schmid2003, :Duretz2026_1, :Duretz2026_2, :Duretz2026_3]
-    titles  = ["Test 1", "Test 2", "Test 3", "Test 4"]
-    nc_list = [51, 101, 201, 401] 
-    zoom    = 3.0
+    tests   = [ :Schmid2003, :Duretz2026_1, :Duretz2026_2, :Duretz2026_3]
+    titles  = ["Test 1", "Test 2","Test 3", "Test 4"]
+    nc_list = [51, 101, 201, 401]
+    zoom   = 3.0
 
     fields = [
         (:vx,  "vx",  :steelblue),
@@ -492,11 +504,11 @@ let
 
         for nc in nc_list
             num = Stokes2D(nc, test; zoom = zoom)
-            push!(invh, nc/num.Lx)
+            push!(invh, nc/num.Lx)          # normalised 1/h  (Lx = 2)
 
             Vx_an = [f_anal(@SVector([num.xv[i],  num.yce[j]]); params = params).V[1] for i in axes(num.Vx, 1), j in axes(num.Vx, 2)]
             Vy_an = [f_anal(@SVector([num.xce[i], num.yv[j] ]); params = params).V[2] for i in axes(num.Vy, 1), j in axes(num.Vy, 2)]
-            P_an  = [f_anal(@SVector([num.xc[i],  num.yc[j] ]); params = params).p    for i in axes(num.Pt, 1), j in axes(num.Pt, 2)]
+            P_an  = [f_anal(@SVector([num.xc[i],  num.yc[j] ]); params = params).p      for i in axes(num.Pt, 1), j in axes(num.Pt, 2)]
 
             push!(ε[:vx], mean(abs.(Vx_an .- num.Vx)))
             push!(ε[:vy], mean(abs.(Vy_an .- num.Vy)))
@@ -527,3 +539,4 @@ let
     save("convergence_JoukowskyDMvsNumerics_v2.png", fig, px_per_unit = 2)
     display(fig)
 end
+=#

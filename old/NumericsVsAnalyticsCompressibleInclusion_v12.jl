@@ -73,7 +73,7 @@ end
         ηm, ηi = 1.0, 1e-1
         ξm, ξi = 1e0, 1e0
         ε̇ = 1e-10
-        γ̇ = 0.0
+        γ̇ = 1.0
         ζ̇ = 1e0
     elseif test==:Duretz2026_3
         # Test 3: pure shear + expansion + simple shear WITH finite compressibility
@@ -380,35 +380,35 @@ end
     fig = Figure(size=(900, 1000))
     # -------------
     ax  = Axis(fig[1,1], aspect=DataAspect())
-    hm  = heatmap!(ax, xv, yce, Vx .- Vx_ini, colormap=(Reverse(:matter), 1), colorrange=extrema(Va.x.-Vx_ini))
+    hm  = heatmap!(ax, xv, yce, Vx , colormap=(Reverse(:matter), 1))
     ax  = Axis(fig[2,1], aspect=DataAspect())
-    hm  = heatmap!(ax, xce, yv, Vy .- Vy_ini, colormap=(Reverse(:matter), 1), colorrange=extrema(Va.y.-Vy_ini))
+    hm  = heatmap!(ax, xce, yv, Vy , colormap=(Reverse(:matter), 1))
     ax  = Axis(fig[3,1], aspect=DataAspect())
-    hm  = heatmap!(ax, xc, yc, Pt, colormap=(Reverse(:matter), 1), colorrange=extrema(Pa))
+    hm  = heatmap!(ax, xc, yc, Pt, colormap=(Reverse(:matter), 1))
     ax  = Axis(fig[4,1], aspect=DataAspect())
-    hm  = heatmap!(ax, xc, yc, Sxx, colormap=(Reverse(:matter), 1), colorrange=extrema(Sa.xx))
+    hm  = heatmap!(ax, xc, yc, Sxx, colormap=(Reverse(:matter), 1))
     ax  = Axis(fig[5,1], aspect=DataAspect())
-    hm  = heatmap!(ax, xc, yc, Szz, colormap=(Reverse(:matter), 1), colorrange=extrema(Sa.zz))
+    hm  = heatmap!(ax, xc, yc, Szz, colormap=(Reverse(:matter), 1))
     ax  = Axis(fig[6,1], aspect=DataAspect())
-    hm  = heatmap!(ax, xv, yv, Txy, colormap=(Reverse(:matter), 1), colorrange=extrema(Sa.xy))
+    hm  = heatmap!(ax, xv, yv, Txy, colormap=(Reverse(:matter), 1))
     # -------------
     ax  = Axis(fig[1,2], aspect=DataAspect())
-    hm  = heatmap!(ax, xv, yce, Va.x .- Vx_ini, colormap=(Reverse(:matter), 1), colorrange=extrema(Va.x.-Vx_ini))
+    hm  = heatmap!(ax, xv, yce, Va.x , colormap=(Reverse(:matter), 1))
     Colorbar(fig[1,3], hm)
     ax  = Axis(fig[2,2], aspect=DataAspect())
-    hm  = heatmap!(ax, xce, yv, Va.y .- Vy_ini, colormap=(Reverse(:matter), 1), colorrange=extrema(Va.y.-Vy_ini))
+    hm  = heatmap!(ax, xce, yv, Va.y , colormap=(Reverse(:matter), 1))
     Colorbar(fig[2,3], hm)
     ax  = Axis(fig[3,2], aspect=DataAspect())
-    hm  = heatmap!(ax, xc, yc, Pa, colormap=(Reverse(:matter), 1), colorrange=extrema(Pa))
+    hm  = heatmap!(ax, xc, yc, Pa, colormap=(Reverse(:matter), 1))
     Colorbar(fig[3,3], hm)
     ax  = Axis(fig[4,2], aspect=DataAspect())
-    hm  = heatmap!(ax, xc, yc, Sa.xx, colormap=(Reverse(:matter), 1), colorrange=extrema(Sa.xx))
+    hm  = heatmap!(ax, xc, yc, Sa.xx, colormap=(Reverse(:matter), 1))
     Colorbar(fig[4,3], hm)
     ax  = Axis(fig[5,2], aspect=DataAspect())
-    hm  = heatmap!(ax, xc, yc, Sa.zz, colormap=(Reverse(:matter), 1), colorrange=extrema(Sa.zz))
+    hm  = heatmap!(ax, xc, yc, Sa.zz, colormap=(Reverse(:matter), 1))
     Colorbar(fig[5,3], hm)
     ax  = Axis(fig[6,2], aspect=DataAspect())
-    hm  = heatmap!(ax, xv, yv, Sa.xy, colormap=(Reverse(:matter), 1), colorrange=extrema(Sa.xy))
+    hm  = heatmap!(ax, xv, yv, Sa.xy, colormap=(Reverse(:matter), 1))
     Colorbar(fig[6,3], hm)
     # -------------
     ax  = Axis(fig[1,4], aspect=DataAspect())
@@ -440,12 +440,21 @@ end
 
 let 
 
+<<<<<<< Updated upstream:old/NumericsVsAnalyticsCompressibleInclusion_v12.jl
     # test = :Schmid2003
     test = :Duretz2026_1   
     # test = :Duretz2026_2
     # test = :Duretz2026_3
 
     nc = [101]#[51 101 201 401]
+=======
+     #test = :Schmid2003
+     #test = :Duretz2026_1   
+     test = :Duretz2026_2
+    #test = :Duretz2026_3
+
+    nc = [200 ]
+>>>>>>> Stashed changes:NumericsVsAnalyticsCompressibleInclusion_v12.jl
     L1  = (
         Vx  = zeros(length(nc)), 
         Vy  = zeros(length(nc)), 
