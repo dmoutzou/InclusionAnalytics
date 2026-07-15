@@ -163,8 +163,8 @@ end
     Lx, Ly   = 2*zoom*a, 2*zoom*a
     # Numerics
     ncx, ncy = n, n         # numerical grid resolution
-    ϵ        = 1e-9         # tolerance
-    iterMax  = 1e5          # max number of iters
+    ϵ        = 1e-7         # tolerance
+    iterMax  = 1e4          # max number of iters
     nout     = 100          # check frequency
     c_fact   = 0.5          # damping factor
     dτ_local = true         # helps a little bit sometimes, sometimes not!
@@ -360,10 +360,10 @@ end
         Rx    .= (.-(Pt[2:end,:] .- Pt[1:end-1,:])./Δx .+ (Txx[2:end,:] .- Txx[1:end-1,:])./Δx .+ (Txy[2:end-1,2:end] .- Txy[2:end-1,1:end-1])./Δy)
         Ry    .= (.-(Pt[:,2:end] .- Pt[:,1:end-1])./Δy .+ (Tyy[:,2:end] .- Tyy[:,1:end-1])./Δy .+ (Txy[2:end,2:end-1] .- Txy[1:end-1,2:end-1])./Δx)
         Rp    .= .-∇V .- comp*Pt./ηb
-        Rp   .-= mean(Rp) 
+        # Rp   .-= mean(Rp) 
         # Residual check
         # @show extrema(Rp)
-        errVx = norm(Rx); errVy = norm(Ry); errPt = norm(Rp)
+        errVx = norm(Rx); errVy = norm(Ry); errPt = norm(Rp .- mean(Rp))
         if itPH==1 errVx0=errVx; errVy0=errVy; errPt0=errPt; end
         err = maximum([errVx/errVx0, errVy/errVy0, errPt/errPt0])
         @printf("itPH = %02d iter = %06d iter/nx = %03d, err = %1.3e norm[Rx=%1.3e, Ry=%1.3e, Rp=%1.3e] \n", itPH, iter, iter/ncx, err, errVx/errVx0, errVy/errVy0, errPt/errPt0)
