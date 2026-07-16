@@ -40,8 +40,13 @@ end
     ηm, ηi, ξm, ξi, γ̇, ε̇, ζ̇, ri = params
 
     # For BCs use the selected analytical solution with physical compressibility
+<<<<<<< Updated upstream:src/Numerics.jl
     bc_params = comp ? (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξm, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇, ri=ri) :
                        (ηm=ηm, ηi=ηi, ξm=1e100*ξm, ξi=1e100*ξm, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇, ri=ri)
+=======
+    bc_params = comp ? (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, ri=ri, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇) :
+                   (ηm=ηm, ηi=ηi, ξm=1e100*ξm, ξi=1e100*ξi, ri=ri, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇)
+>>>>>>> Stashed changes:NumericsVsAnalytics_systematics.jl
 
     ncx, ncy = n, n
     ϵ        = 1e-7
@@ -96,7 +101,7 @@ end
     ηc .= av4_harm(ηv_sharp)
     ηv[2:end-1,2:end-1] .= av4_harm(ηc_sharp)
     ηb .= ξm
-
+    ηb[(xc).^2 .+ (yc').^2 .< ri^2] .= ξi
     γi    = γfact * mean(ηc) .* ones(size(ηc))
     γ_eff = zeros(size(ηb))
     if comp
@@ -137,11 +142,17 @@ end
         VyE[j] = f_anal(@SVector([ Lx/2; yv[j]]); params=bc_params).V[2]
     end
 
-    # Initial condition: zero interior first (creates non-zero pressure residual),
-    # then overwrite all of Vx/Vy from the analytical solution.
-    Vx[2:end-1,:] .= 0
-    Vy[:,2:end-1] .= 0
-    Va = (x=zeros(ncx+1,ncy+2), y=zeros(ncx+2,ncy+1))
+    # Initial condition
+    Vx     .=   ε̇.*xv .+  0*yce' .+  ζ̇ .*xv
+    Vy     .=   0*xce .-  ε̇.*yv' .+  ζ̇ .*yv'
+    Vx_ini  = copy(Vx)
+    Vy_ini  = copy(Vy)
+    Vx[2:end-1,:] .= 0 # ensure non zero initial pressure residual
+    Vy[:,2:end-1] .= 0 # ensure non zero initial pressure residual
+    Va = (
+        x = zeros(ncx+1, ncy+2),
+        y = zeros(ncx+2, ncy+1)
+    )
     for I in CartesianIndices(Vx)
         i, j      = I[1], I[2]
         sol       = f_anal(@SVector([xv[i]; yce[j]]); params=bc_params)
@@ -157,7 +168,12 @@ end
 
     # Analytical reference on cell-centre / vertex grids
     Pa = zeros(ncx, ncy)
-    Sa = (xx=zeros(ncx,ncy), yy=zeros(ncx,ncy), zz=zeros(ncx,ncy), xy=zeros(ncx+1,ncy+1))
+    Sa = (
+        xx = zeros(ncx, ncy),
+        yy = zeros(ncx, ncy),
+        zz = zeros(ncx, ncy),
+        xy = zeros(ncx+1, ncy+1),
+    )
     for I in CartesianIndices(Pa)
         i, j = I[1], I[2]
         sol = f_anal(@SVector([xc[i]; yc[j]]); params=bc_params)

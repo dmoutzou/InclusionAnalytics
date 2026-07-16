@@ -71,12 +71,12 @@ end
         ηm, ηi = 1.0, 1e-1
         ξm, ξi = 1e0, 1e0
         ε̇ = 1e-10
-        γ̇ = 0.0
+        γ̇ = 1.0
         ζ̇ = 1e0
     elseif test==:Duretz2026_3
         # Test 3: pure shear + expansion + simple shear WITH finite compressibility
         ηm, ηi = 1.0, 1e-1
-        ξm, ξi = 1e2, 1e2
+        ξm, ξi = 1.0, 1.0
         ε̇ = 1e-10
         γ̇ = 1.0
         ζ̇ = 1e0
@@ -370,11 +370,11 @@ end
 
 let
     #test = :Schmid2003
-    test = :Duretz2026_1
-    #test = :Duretz2026_2
+    #test = :Duretz2026_1
+    test = :Duretz2026_2
     #test = :Duretz2026_3
 
-    nc_list = [32, 64, 128, 256]
+    nc_list = [201]
     Lx, Ly  = 1.0, 1.0
 
     # Storage for convergence
@@ -443,15 +443,15 @@ let
             dlim  = max(maximum(abs, diff),  1e-12)
 
             ax1 = Axis(fig[row, 1], aspect=DataAspect(), ylabel=name)
-            hm1 = heatmap!(ax1, gx, gy, an_c;  colormap=Reverse(:RdBu), colorrange=(-clim, clim))
+            hm1 = heatmap!(ax1, gx, gy, an_c;  colormap=(Reverse(:matter), 1))
             Colorbar(fig[row, 2], hm1, width=12)
 
             ax2 = Axis(fig[row, 3], aspect=DataAspect())
-            hm2 = heatmap!(ax2, gx, gy, num_c; colormap=Reverse(:RdBu), colorrange=(-clim, clim))
+            hm2 = heatmap!(ax2, gx, gy, num_c; colormap=(Reverse(:matter), 1))
             Colorbar(fig[row, 4], hm2, width=12)
 
             ax3 = Axis(fig[row, 5], aspect=DataAspect())
-            hm3 = heatmap!(ax3, gx, gy, diff;  colormap=Reverse(:RdBu), colorrange=(-dlim, dlim))
+            hm3 = heatmap!(ax3, gx, gy, diff;  colormap=(Reverse(:matter), 1))
             Colorbar(fig[row, 6], hm3, width=12)
         end
 

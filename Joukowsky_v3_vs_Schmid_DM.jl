@@ -97,6 +97,9 @@ function preset(test)
     elseif test == :Schmid_ss
         ηm = 1.0; ηi = 1000.0;  ξm, ξi = 1e10, 1e10
         ε̇ = 0.0;  γ̇ = 0.5;  ζ̇ = 0.0;  t = 2.0;  α = 0.0
+    elseif test == :Schmid_3
+        ηm = 1.0; ηi = 1e-2;  ξm, ξi = 1e10, 1e10
+        ε̇ = -1.0;  γ̇ = 0.0;  ζ̇ = 0.0;  t = 1.01;  α = 0.0
     else
         error("unknown test $test")
     end
@@ -272,4 +275,4 @@ function plot_comparison(test; nρ = 300, nθ = 300, zoom = 4.0)
     return fig
 end
 
-plot_comparison(:Schmid_ss)
+plot_comparison(:Schmid_ps)

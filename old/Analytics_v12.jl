@@ -101,14 +101,14 @@ end
 let 
     # Parameters
     ηm = 1.0
-    ηi = 1e-3
+    ηi = 0.1
     ξm = 1e0
     ξi = 1e0
     ri = 0.1
     t  = π/3
-    γ̇  = 1.0
+    γ̇  = 0.0
     ε̇  = 1e-10
-    ζ̇  = 0.0
+    ζ̇  = 1.0
     params = (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, ri=ri, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇)
 
     X = @SVector([0.0, 0.0])
@@ -147,7 +147,7 @@ let
         ηm, ηi = 1.0, 1e-1
         ξm, ξi = 1e0, 1e0
         ε̇      = 1e-10
-        γ̇      = 0.0
+        γ̇      = 1.0
         ζ̇      = 1e0
     end
     params            = (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, ri=ri, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇)
@@ -214,6 +214,7 @@ let
 
     ax  = Axis(fig[1,1], aspect=DataAspect(), title=L"$$This study")
     hm  = heatmap!(ax, x, y, V.x, colormap=(Reverse(:matter), 1))
+    println("Maximum Vx is ", maximum(V.x))
     st  = 10
     arrows2d!(ax, x[1:st:end], y[1:st:end], V.x[1:st:end,1:st:end], V.y[1:st:end,1:st:end], lengthscale=0.3 )
     Colorbar(fig[1,2], hm)
