@@ -23,7 +23,7 @@ let
 
     for itest in eachindex(tests), ires in eachindex(nc)
 
-        errors, V, P, S, Va, Pa, Sa, xv, yv, xce, yce, xc, yc =
+        errors, V, P, S, Va, Pa, Sa, X =
         Stokes2D(nc[ires], tests[itest]; formulation=formulation)
      
         L1.h[itest, ires]   = Lx/nc[ires]
@@ -36,5 +36,9 @@ let
         L1.σxy[itest, ires] = errors.σxy
     end
 
+    for itest in eachindex(tests)
+        @info "Error reduction: $(itest)"
+        @show L1.Vx[itest, 1:end-1] ./ L1.Vx[itest, 2:end] 
+    end
     # jldsave("TruncationSystematics.jld2", errors=L1)
 end

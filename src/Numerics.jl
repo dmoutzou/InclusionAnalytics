@@ -1,6 +1,28 @@
 # Numerical pseudotransient solver
 @views av4_harm(A) = 1.0 ./ (0.25 .* (1.0./A[1:end-1,1:end-1] .+ 1.0./A[2:end,1:end-1] .+ 1.0./A[1:end-1,2:end] .+ 1.0./A[2:end,2:end]))
 
+# Gauss–Legendre Quadrature points for integral
+const gp3 = (-sqrt(3/5), 0.0, sqrt(3/5))   # Gauss–Legendre nodes on [-1, 1]
+const gw3 = ( 5/9,       8/9, 5/9      )   # Gauss–Legendre weights (sum = 2)
+
+f_anal(X; params) = Analytics_new(X; params)
+
+# The problem is that the analytical solution gives point values, which may not represent an entire face
+# So we can average using the Quadrature 
+function face_avg(x0, y0, Δ, dim, comp; params)
+    acc = 0.0
+    for k in 1:3
+        s = 0.5*Δ*gp3[k]
+        if dim == 2
+            X = @SVector([x0, y0 + s])
+        else
+            X = @SVector([x0 + s, y0])
+        end
+        acc += 0.5*gw3[k] * f_anal(X; params=params).V[comp]
+    end
+    return acc
+end
+
 function Gershgorin_Stokes2D_SchurComplement(ηc, ηv, γ, Δx, Δy, ncx, ncy)
     ηN  = ones(ncx-1, ncy);  ηS  = ones(ncx-1, ncy)
     ηN[:,1:end-1] .= ηv[2:end-1,2:end-1];  ηS[:,2:end] .= ηv[2:end-1,2:end-1]
@@ -30,8 +52,6 @@ end
 # Stokes solver
 @views function Stokes2D(n, test; formulation=:new)
 
-    f_anal = formulation == :new ? Analytics_new : Analytics_old
-
     Lx, Ly   = 1.0, 1.0
     comp     = true
     one_iter = false
@@ -40,13 +60,8 @@ end
     ηm, ηi, ξm, ξi, γ̇, ε̇, ζ̇, ri = params
 
     # For BCs use the selected analytical solution with physical compressibility
-<<<<<<< Updated upstream:src/Numerics.jl
     bc_params = comp ? (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξm, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇, ri=ri) :
                        (ηm=ηm, ηi=ηi, ξm=1e100*ξm, ξi=1e100*ξm, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇, ri=ri)
-=======
-    bc_params = comp ? (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, ri=ri, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇) :
-                   (ηm=ηm, ηi=ηi, ξm=1e100*ξm, ξi=1e100*ξi, ri=ri, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇)
->>>>>>> Stashed changes:NumericsVsAnalytics_systematics.jl
 
     ncx, ncy = n, n
     ϵ        = 1e-7
@@ -145,28 +160,29 @@ end
     # Initial condition
     Vx     .=   ε̇.*xv .+  0*yce' .+  ζ̇ .*xv
     Vy     .=   0*xce .-  ε̇.*yv' .+  ζ̇ .*yv'
-    Vx_ini  = copy(Vx)
-    Vy_ini  = copy(Vy)
     Vx[2:end-1,:] .= 0 # ensure non zero initial pressure residual
     Vy[:,2:end-1] .= 0 # ensure non zero initial pressure residual
+     # Apply Gauss–Legendre Quadrature
+     for j in 2:ncy+1                    # west & east faces span yv[j-1]..yv[j]
+        ym         = 0.5*(yv[j-1] + yv[j])
+        Vx[1,   j] = face_avg(-Lx/2, ym, Δy, 2, 1; params)
+        Vx[end, j] = face_avg( Lx/2, ym, Δy, 2, 1; params)
+    end
+    for i in 2:ncx+1                    # south & north faces span xv[i-1]..xv[i]
+        xm         = 0.5*(xv[i-1] + xv[i])
+        Vy[i, 1  ] = face_avg(xm, -Ly/2, Δx, 1, 2; params)
+        Vy[i, end] = face_avg(xm,  Ly/2, Δx, 1, 2; params)
+    end
+    # Verification: discrete boundary flux should be ~1e-12 or below
+    Q = Δy*sum(Vx[end,2:end-1] .- Vx[1,2:end-1]) +
+        Δx*sum(Vy[2:end-1,end] .- Vy[2:end-1,1])
+    @printf("Face-averaged BCs: discrete boundary flux Q = %1.6e  (stall floor ≈ %1.3e)\n",
+            Q, abs(Q)/(Lx*Ly)*sqrt(ncx*ncy))
+    # Analytical reference on cell-centre / vertex grids
     Va = (
         x = zeros(ncx+1, ncy+2),
         y = zeros(ncx+2, ncy+1)
     )
-    for I in CartesianIndices(Vx)
-        i, j      = I[1], I[2]
-        sol       = f_anal(@SVector([xv[i]; yce[j]]); params=bc_params)
-        Vx[i,j]   = sol.V[1]
-        Va.x[i,j] = sol.V[1]
-    end
-    for I in CartesianIndices(Vy)
-        i, j      = I[1], I[2]
-        sol       = f_anal(@SVector([xce[i]; yv[j]]); params=bc_params)
-        Vy[i,j]   = sol.V[2]
-        Va.y[i,j] = sol.V[2]
-    end
-
-    # Analytical reference on cell-centre / vertex grids
     Pa = zeros(ncx, ncy)
     Sa = (
         xx = zeros(ncx, ncy),
@@ -174,6 +190,16 @@ end
         zz = zeros(ncx, ncy),
         xy = zeros(ncx+1, ncy+1),
     )
+    for I in CartesianIndices(Vx)
+        i, j      = I[1], I[2]
+        sol       = f_anal(@SVector([xv[i]; yce[j]]); params=bc_params)
+        Va.x[i,j] = sol.V[1]
+    end
+    for I in CartesianIndices(Vy)
+        i, j      = I[1], I[2]
+        sol       = f_anal(@SVector([xce[i]; yv[j]]); params=bc_params)
+        Va.y[i,j] = sol.V[2]
+    end
     for I in CartesianIndices(Pa)
         i, j = I[1], I[2]
         sol = f_anal(@SVector([xc[i]; yc[j]]); params=bc_params)

@@ -2,9 +2,30 @@
 #This is a comparison file between analytics and numerics
 using CairoMakie, MathTeXEngine, Printf, Statistics, LinearAlgebra, ExactFieldSolutions, StaticArrays
 
+# works with stress boundary conditions or with higher order boundary quadrature
+
 @views av4_harm(A) = 1.0./( 0.25.*(1.0./A[1:end-1,1:end-1].+1.0./A[2:end,1:end-1].+1.0./A[1:end-1,2:end].+1.0./A[2:end,2:end]) )
 include("Joukowsky_v3_DM_function.jl")
 
+# Gauss–Legendre Quadrature points for integral
+const gp3 = (-sqrt(3/5), 0.0, sqrt(3/5))   # Gauss–Legendre nodes on [-1, 1]
+const gw3 = ( 5/9,       8/9, 5/9      )   # Gauss–Legendre weights (sum = 2)
+
+# The problem is that the analytical solution gives point values, which may not represent an entire face
+# So we can average using the Quadrature 
+function face_avg(x0, y0, Δ, dim, comp; params)
+    acc = 0.0
+    for k in 1:3
+        s = 0.5*Δ*gp3[k]
+        if dim == 2
+            X = @SVector([x0, y0 + s])
+        else
+            X = @SVector([x0 + s, y0])
+        end
+        acc += 0.5*gw3[k] * f_anal(X; params=params).V[comp]
+    end
+    return acc
+end
 
 # The numerical solver is using the true cartesian coordinates, so I need the inverse mapping of the Joukowsky transform
 function inv_joukowski(z)
@@ -109,7 +130,7 @@ end
     # Lx, Ly   = 1.0, 1.0
     # Numerics
     ncx, ncy = n, n         # numerical grid resolution
-    ϵ        = 1e-7         # tolerance
+    ϵ        = 1e-9         # tolerance
     iterMax  = 1e4          # max number of iters
     nout     = 100          # check frequency
     c_fact   = 0.5          # damping factor
@@ -231,15 +252,15 @@ end
         i, j      = I[1], I[2]
         X         = @SVector([xv[i]; yce[j]])
         sol       = f_anal(X; params=params)
-        Vx[i,j]   = BC_anal ? sol.V[1] : ε̇.*xv[i]
-        SxxVx[i,j] = sol.τ[1,1] - sol.p
+        # Vx[i,j]   = BC_anal ? sol.V[1] : ε̇.*xv[i]
+        # SxxVx[i,j] = sol.τ[1,1] - sol.p
         Va.x[i,j] = sol.V[1]
     end
     for I in CartesianIndices(Vy)
         i, j      = I[1], I[2]
         X         = @SVector([xce[i]; yv[j]])
         sol       = f_anal(X; params=params)
-        Vy[i,j]   = BC_anal ? sol.V[2] : -ε̇.*yv[j]
+        # Vy[i,j]   = BC_anal ? sol.V[2] : -ε̇.*yv[j]
         Va.y[i,j] = sol.V[2]
     end
     Vx[2:end-1,:] .= 0 # ensure non zero initial pressure residual
@@ -263,6 +284,18 @@ end
         X      = @SVector([Lx/2; yv[j]])
         sol    = f_anal(X; params=params)
         VyE[j] = sol.V[2]
+    end
+
+    # Apply Gauss–Legendre Quadrature
+    for j in 2:ncy+1                    # west & east faces span yv[j-1]..yv[j]
+        ym         = 0.5*(yv[j-1] + yv[j])
+        Vx[1,   j] = face_avg(-Lx/2, ym, Δy, 2, 1; params)
+        Vx[end, j] = face_avg( Lx/2, ym, Δy, 2, 1; params)
+    end
+    for i in 2:ncx+1                    # south & north faces span xv[i-1]..xv[i]
+        xm         = 0.5*(xv[i-1] + xv[i])
+        Vy[i, 1  ] = face_avg(xm, -Ly/2, Δx, 1, 2; params)
+        Vy[i, end] = face_avg(xm,  Ly/2, Δx, 1, 2; params)
     end
 
     # Stress BC
@@ -432,7 +465,7 @@ let
 
     for nc in nc_list
 
-        num    = Stokes2D(nc, test; zoom=zoom, BC_anal=true)
+        num    = Stokes2D(nc, test; zoom=zoom, BC_anal=true, stress_BC_W=false)
         params = preset(test)
 
         push!(err_Vx, maximum(abs, num.Ve.x))
