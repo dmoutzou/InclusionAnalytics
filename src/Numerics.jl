@@ -40,13 +40,8 @@ end
     ηm, ηi, ξm, ξi, γ̇, ε̇, ζ̇, ri = params
 
     # For BCs use the selected analytical solution with physical compressibility
-<<<<<<< Updated upstream:src/Numerics.jl
-    bc_params = comp ? (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξm, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇, ri=ri) :
-                       (ηm=ηm, ηi=ηi, ξm=1e100*ξm, ξi=1e100*ξm, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇, ri=ri)
-=======
     bc_params = comp ? (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, ri=ri, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇) :
                    (ηm=ηm, ηi=ηi, ξm=1e100*ξm, ξi=1e100*ξi, ri=ri, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇)
->>>>>>> Stashed changes:NumericsVsAnalytics_systematics.jl
 
     ncx, ncy = n, n
     ϵ        = 1e-7
