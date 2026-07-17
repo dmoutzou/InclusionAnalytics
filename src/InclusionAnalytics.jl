@@ -2,16 +2,16 @@ module InclusionAnalytics
 
 using StaticArrays, Printf, Statistics, LinearAlgebra
 
-include("Analysis.jl")
-export preset_circle, preset_ellipse
-
-include("Numerics.jl")
-export Stokes2D
+include("Physical_parameters.jl")
+export preset
 
 include("AnalyticsCircularInclusion.jl")
-export Analytics_old, Analytics_new
+export Analytics_circle
 
 include("AnalyticsEllipticalInclusion.jl")
-export joukowski, t_to_ri
+export joukowski, t_to_ri, ellipse_axes, to_zeta, Analytics_ellipse
 
-end # module InclusionAnalytics
+include("Numerics.jl")
+export Stokes2D, f_anal
+
+end

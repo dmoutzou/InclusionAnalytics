@@ -1,24 +1,31 @@
-# Numerical pseudotransient solver
+# Autotuned pseudotransient solver for either a circular or an elliptical inclusion in a matrix.
+# Domain box is centred at the origin, but its size depends on geometry.
 @views av4_harm(A) = 1.0 ./ (0.25 .* (1.0./A[1:end-1,1:end-1] .+ 1.0./A[2:end,1:end-1] .+ 1.0./A[1:end-1,2:end] .+ 1.0./A[2:end,2:end]))
 
 # Gauss–Legendre Quadrature points for integral
 const gp3 = (-sqrt(3/5), 0.0, sqrt(3/5))   # Gauss–Legendre nodes on [-1, 1]
 const gw3 = ( 5/9,       8/9, 5/9      )   # Gauss–Legendre weights (sum = 2)
 
-f_anal(X; params) = Analytics_new(X; params)
+# Analytical field at a NORMALISED point Xn ∈ the unit box.
+function f_anal(Xn; params, geometry, S=1.0)
+    if geometry == :circular
+        return Analytics_circle(Xn; params=params)
+    elseif geometry == :elliptical
+        sol = Analytics_ellipse(to_zeta(S .* Xn); params=params)
+        return (V=sol.V./S, p=sol.p, τ=sol.τ, τzz=sol.τzz)
+    else
+        error("Unknown geometry: $geometry")
+    end
+end
 
 # The problem is that the analytical solution gives point values, which may not represent an entire face
-# So we can average using the Quadrature 
-function face_avg(x0, y0, Δ, dim, comp; params)
+# So we can average using the Gauss-Legendre Quadrature
+function face_avg(x0, y0, Δ, dim, comp; params, geometry, S=1.0)
     acc = 0.0
     for k in 1:3
-        s = 0.5*Δ*gp3[k]
-        if dim == 2
-            X = @SVector([x0, y0 + s])
-        else
-            X = @SVector([x0 + s, y0])
-        end
-        acc += 0.5*gw3[k] * f_anal(X; params=params).V[comp]
+        s  = 0.5*Δ*gp3[k]
+        Xn = dim == 2 ? @SVector([x0, y0 + s]) : @SVector([x0 + s, y0])
+        acc += 0.5*gw3[k] * f_anal(Xn; params=params, geometry=geometry, S=S).V[comp]
     end
     return acc
 end
@@ -50,26 +57,42 @@ function Gershgorin_Stokes2D_SchurComplement(ηc, ηv, γ, Δx, Δy, ncx, ncy)
 end
 
 # Stokes solver
-@views function Stokes2D(n, test; formulation=:new)
+@views function Stokes2D(n, test; geometry=:circular, a_target=0.2,
+                          γfact  = geometry == :circular ? 60    : 5,
+                          dτ_local = geometry == :circular ? true  : false,
+                          nPH    = geometry == :circular ? 50    : 100)
 
-    Lx, Ly   = 1.0, 1.0
+    # for the elliptical case I use  [-1,1], so `a_target` is the
+    # inclusion's normalised semi-major axis directly on that box.
+    Lx, Ly   = geometry == :circular ? (1.0, 1.0) : (2.0, 2.0)
     comp     = true
     one_iter = false
 
-    params = preset_circle(test)
-    ηm, ηi, ξm, ξi, γ̇, ε̇, ζ̇, ri = params
+    params = preset(test, geometry)
+    ε̇, ζ̇   = params.ε̇, params.ζ̇
+
+    # Normalisation if we use the elliptical case
+    if geometry == :circular
+        S  = 1.0
+        an = params.ri
+        bn = params.ri
+    elseif geometry == :elliptical
+        a, b = ellipse_axes(params.t)
+        S    = a / a_target
+        an   = a_target
+        bn   = b / S
+    else
+        error("Unknown geometry: $geometry")
+    end
 
     # For BCs use the selected analytical solution with physical compressibility
-    bc_params = comp ? (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξm, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇, ri=ri) :
-                       (ηm=ηm, ηi=ηi, ξm=1e100*ξm, ξi=1e100*ξm, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇, ri=ri)
+    bc_params = comp ? params : merge(params, (ξm = 1e100*params.ξm, ξi = 1e100*params.ξi))
 
     ncx, ncy = n, n
     ϵ        = 1e-7
     iterMax  = 1e5
     nout     = 100
     c_fact   = 0.5
-    dτ_local = true
-    γfact    = 60
     rel_drop = 1e-3
 
     Δx, Δy  = Lx/ncx, Ly/ncy
@@ -102,21 +125,22 @@ end
     αVx      = zeros(ncx-1, ncy  )
     αVy      = zeros(ncx,   ncy-1)
     ηb       = zeros(ncx,   ncy  )
-    ηc       = ηm .* ones(ncx,   ncy  )
-    ηv       = ηm .* ones(ncx+1, ncy+1)
-    ηc_sharp = ηm .* ones(ncx,   ncy  )
-    ηv_sharp = ηm .* ones(ncx+1, ncy+1)
+    ηc       = params.ηm .* ones(ncx,   ncy  )
+    ηv       = params.ηm .* ones(ncx+1, ncy+1)
+    ηc_sharp = params.ηm .* ones(ncx,   ncy  )
+    ηv_sharp = params.ηm .* ones(ncx+1, ncy+1)
 
     xce, yce = LinRange(-Lx/2-Δx/2, Lx/2+Δx/2, ncx+2), LinRange(-Ly/2-Δy/2, Ly/2+Δy/2, ncy+2)
     xc, yc   = LinRange(-Lx/2+Δx/2, Lx/2-Δx/2, ncx),   LinRange(-Ly/2+Δy/2, Ly/2-Δy/2, ncy)
     xv, yv   = LinRange(-Lx/2, Lx/2, ncx+1),             LinRange(-Ly/2, Ly/2, ncy+1)
 
-    ηv_sharp[(xv).^2 .+ (yv').^2 .< ri^2] .= ηi
-    ηc_sharp[(xc).^2 .+ (yc').^2 .< ri^2] .= ηi
+    # Elliptical mask reduces to the circular one when an == bn == ri
+    ηv_sharp[(xv./an).^2 .+ (yv'./bn).^2 .< 1.0] .= params.ηi
+    ηc_sharp[(xc./an).^2 .+ (yc'./bn).^2 .< 1.0] .= params.ηi
     ηc .= av4_harm(ηv_sharp)
     ηv[2:end-1,2:end-1] .= av4_harm(ηc_sharp)
-    ηb .= ξm
-    ηb[(xc).^2 .+ (yc').^2 .< ri^2] .= ξi
+    ηb .= params.ξm
+    ηb[(xc./an).^2 .+ (yc'./bn).^2 .< 1.0] .= params.ξi
     γi    = γfact * mean(ηc) .* ones(size(ηc))
     γ_eff = zeros(size(ηb))
     if comp
@@ -148,13 +172,13 @@ end
     # Boundary values from analytical solution
     VxS, VxN = zeros(ncx+1), zeros(ncx+1)
     for i in eachindex(VxS)
-        VxS[i] = f_anal(@SVector([xv[i]; -Ly/2]); params=bc_params).V[1]
-        VxN[i] = f_anal(@SVector([xv[i];  Ly/2]); params=bc_params).V[1]
+        VxS[i] = f_anal(@SVector([xv[i]; -Ly/2]); params=bc_params, geometry=geometry, S=S).V[1]
+        VxN[i] = f_anal(@SVector([xv[i];  Ly/2]); params=bc_params, geometry=geometry, S=S).V[1]
     end
     VyW, VyE = zeros(ncy+1), zeros(ncy+1)
     for j in eachindex(VyW)
-        VyW[j] = f_anal(@SVector([-Lx/2; yv[j]]); params=bc_params).V[2]
-        VyE[j] = f_anal(@SVector([ Lx/2; yv[j]]); params=bc_params).V[2]
+        VyW[j] = f_anal(@SVector([-Lx/2; yv[j]]); params=bc_params, geometry=geometry, S=S).V[2]
+        VyE[j] = f_anal(@SVector([ Lx/2; yv[j]]); params=bc_params, geometry=geometry, S=S).V[2]
     end
 
     # Initial condition
@@ -162,63 +186,28 @@ end
     Vy     .=   0*xce .-  ε̇.*yv' .+  ζ̇ .*yv'
     Vx[2:end-1,:] .= 0 # ensure non zero initial pressure residual
     Vy[:,2:end-1] .= 0 # ensure non zero initial pressure residual
-     # Apply Gauss–Legendre Quadrature
-     for j in 2:ncy+1                    # west & east faces span yv[j-1]..yv[j]
+    # Apply Gauss–Legendre Quadrature
+    for j in 2:ncy+1                    # west & east faces span yv[j-1]..yv[j]
         ym         = 0.5*(yv[j-1] + yv[j])
-        Vx[1,   j] = face_avg(-Lx/2, ym, Δy, 2, 1; params)
-        Vx[end, j] = face_avg( Lx/2, ym, Δy, 2, 1; params)
+        Vx[1,   j] = face_avg(-Lx/2, ym, Δy, 2, 1; params=params, geometry=geometry, S=S)
+        Vx[end, j] = face_avg( Lx/2, ym, Δy, 2, 1; params=params, geometry=geometry, S=S)
     end
     for i in 2:ncx+1                    # south & north faces span xv[i-1]..xv[i]
         xm         = 0.5*(xv[i-1] + xv[i])
-        Vy[i, 1  ] = face_avg(xm, -Ly/2, Δx, 1, 2; params)
-        Vy[i, end] = face_avg(xm,  Ly/2, Δx, 1, 2; params)
+        Vy[i, 1  ] = face_avg(xm, -Ly/2, Δx, 1, 2; params=params, geometry=geometry, S=S)
+        Vy[i, end] = face_avg(xm,  Ly/2, Δx, 1, 2; params=params, geometry=geometry, S=S)
     end
     # Verification: discrete boundary flux should be ~1e-12 or below
     Q = Δy*sum(Vx[end,2:end-1] .- Vx[1,2:end-1]) +
         Δx*sum(Vy[2:end-1,end] .- Vy[2:end-1,1])
     @printf("Face-averaged BCs: discrete boundary flux Q = %1.6e  (stall floor ≈ %1.3e)\n",
             Q, abs(Q)/(Lx*Ly)*sqrt(ncx*ncy))
-    # Analytical reference on cell-centre / vertex grids
-    Va = (
-        x = zeros(ncx+1, ncy+2),
-        y = zeros(ncx+2, ncy+1)
-    )
-    Pa = zeros(ncx, ncy)
-    Sa = (
-        xx = zeros(ncx, ncy),
-        yy = zeros(ncx, ncy),
-        zz = zeros(ncx, ncy),
-        xy = zeros(ncx+1, ncy+1),
-    )
-    for I in CartesianIndices(Vx)
-        i, j      = I[1], I[2]
-        sol       = f_anal(@SVector([xv[i]; yce[j]]); params=bc_params)
-        Va.x[i,j] = sol.V[1]
-    end
-    for I in CartesianIndices(Vy)
-        i, j      = I[1], I[2]
-        sol       = f_anal(@SVector([xce[i]; yv[j]]); params=bc_params)
-        Va.y[i,j] = sol.V[2]
-    end
-    for I in CartesianIndices(Pa)
-        i, j = I[1], I[2]
-        sol = f_anal(@SVector([xc[i]; yc[j]]); params=bc_params)
-        Pa[i,j]    = sol.p
-        Sa.xx[i,j] = sol.τ[1,1] - sol.p
-        Sa.yy[i,j] = sol.τ[2,2] - sol.p
-        Sa.zz[i,j] = sol.τzz    - sol.p
-    end
-    for I in CartesianIndices(Sa.xy)
-        i, j = I[1], I[2]
-        sol = f_anal(@SVector([xv[i]; yv[j]]); params=bc_params)
-        Sa.xy[i,j] = sol.τ[1,2]
-    end
 
     # Iteration loop
     errVx0=1.0; errVy0=1.0; errPt0=1.0
     errVx00=1.0; errVy00=1.0
     iter=1; err=2*ϵ
-    @time for itPH = 1:50
+    @time for itPH = 1:nPH
         Vx[:,1] .= 2*VxS .- Vx[:,2];  Vx[:,end] .= 2*VxN .- Vx[:,end-1]
         Vy[1,:] .= 2*VyW .- Vy[2,:];  Vy[end,:] .= 2*VyE .- Vy[end-1,:]
         ∇V  .= (Vx[2:end,2:end-1] .- Vx[1:end-1,2:end-1])./Δx .+ (Vy[2:end-1,2:end] .- Vy[2:end-1,1:end-1])./Δy
@@ -234,7 +223,7 @@ end
         errVx = norm(Rx); errVy = norm(Ry); errPt = norm(Rp)
         if itPH==1 errVx0=errVx; errVy0=errVy; errPt0=errPt end
         err = maximum([errVx/errVx0, errVy/errVy0, errPt/errPt0])
-        @printf("itPH=%02d  err=%1.3e  [Rx=%1.3e  Ry=%1.3e  Rp=%1.3e]\n", itPH, err, errVx/errVx0, errVy/errVy0, errPt/errPt0)
+        @printf("itPH = %02d iter = %06d iter/nx = %03d, err = %1.3e\n        norm[Rx=%1.3e, Ry=%1.3e, Rp=%1.3e] \n", itPH, iter, iter/ncx, err, errVx/errVx0, errVy/errVy0, errPt/errPt0)
         if err < ϵ break end
         ϵ_vel = err * rel_drop
         itPT  = 0
@@ -261,7 +250,6 @@ end
                 errVx = norm(Dx .* Rx); errVy = norm(Dy .* Ry)
                 if iter == nout errVx00=errVx; errVy00=errVy end
                 err = maximum([min(errVx, errVx/errVx00), min(errVy, errVy/errVy00)])
-                push!([], errVx/errVx00)
                 dVx .= dVxdτ .* βVx .* dτVx
                 dVy .= dVydτ .* βVy .* dτVy
                 λminV  = abs(sum(dVx .* Dx .* (Rx .- Rx0)) + sum(dVy .* Dy .* (Ry .- Ry0))) / (sum(dVx .* Dx .* dVx) + sum(dVy .* Dy .* dVy))
@@ -282,28 +270,9 @@ end
     Szz = -Pt .+ (-Txx .- Tyy)
 
     V = (x=Vx, y=Vy)
-    S = (xx=Sxx, yy=Syy, zz=Szz, xy=Txy)
-
-    # Errors
-    Ve = ( 
-        x  = abs.(V.x .- Va.x),
-        y  = abs.(V.y .- Va.y),
-    )
-    Pe  = abs.(Pt .- Pa)
-    Se  = (
-        xx = abs.(S.xx .- Sa.xx),
-        yy = abs.(S.yy .- Sa.yy),
-        zz = abs.(S.zz .- Sa.zz),
-        xy = abs.(S.xy .- Sa.xy),
-    )
-    @printf("mean|dVx| = %1.3e   mean|dVy| = %1.3e   mean|dP| = %1.3e   
-        mean|dSxx| = %1.3e   mean|dSyy| = %1.3e   mean|dSzz| = %1.3e   mean|dSzz| = %1.3e\n",
-        mean(abs, Ve.x), mean(abs, Ve.y), mean(abs, Pe),
-        mean(abs, Se.xx), mean(abs, Se.yy), mean(abs, Se.zz), mean(abs, Se.xy))
-    
-    L1 = (Vx=mean(Ve.x), Vy=mean(Ve.y), P=mean(Pe), σxx=mean(Se.xx), σyy=mean(Se.yy), σzz=mean(Se.zz), σxy=mean(Se.xy))
+    S_out = (xx=Sxx, yy=Syy, zz=Szz, xy=Txy)
     X  = (xv=xv, yv=yv, xce=xce, yce=yce, xc=xc, yc=yc)
 
     @show iter/ncx
-    return L1, V, Pt, S, Va, Pa, Sa, X
+    return V, Pt, S_out, X, bc_params, S
 end

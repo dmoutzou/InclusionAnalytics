@@ -316,7 +316,10 @@ end
         if itPH==1 errVx0=errVx; errVy0=errVy; errPt0=errPt; end
         err = maximum([errVx/errVx0, errVy/errVy0, errPt/errPt0])
         @printf("itPH = %02d iter = %06d iter/nx = %03d, err = %1.3e\n        norm[Rx=%1.3e, Ry=%1.3e, Rp=%1.3e] \n        norm[Rx=%1.3e, Ry=%1.3e, Rp=%1.3e]\n", itPH, iter, iter/ncx, err, errVx/errVx0, errVy/errVy0, errPt/errPt0, errVx, errVy, errPt)
-        if (err<ϵ) break end
+        Q = Δy*sum(Vx[end,2:end-1] .- Vx[1,2:end-1]) .+
+        Δx*sum(Vy[2:end-1,end] .- Vy[2:end-1,1])
+        @show Q, mean(Rp)
+            if (err<ϵ) break end
         # Set tolerance of velocity solve proportional to residual
         ϵ_vel = err*rel_drop
         itPT = 0.

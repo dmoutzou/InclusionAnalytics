@@ -1,10 +1,5 @@
 #Dimitrios Moutzouris, 2026, Analytical solution for compressible elliptical inclusions in host #
 #This is a comparison file between analytics and numerics
-#
-# Normalised version: the numerical domain is the fixed unit box [-1,1]^2.
-# Physical coordinate  X_phys = S * x_norm,   with  S = scale * a.
-# The analytical solution lives in physical space, so we evaluate it at S*x_norm
-# and rescale the fields:  V_num = V_phys / S ;  P and tau are scale-invariant.
 using CairoMakie, MathTeXEngine, Printf, Statistics, LinearAlgebra, ExactFieldSolutions, StaticArrays
 
 @views av4_harm(A) = 1.0./( 0.25.*(1.0./A[1:end-1,1:end-1].+1.0./A[2:end,1:end-1].+1.0./A[1:end-1,2:end].+1.0./A[2:end,2:end]) )
@@ -92,17 +87,18 @@ function Gershgorin_Stokes2D_SchurComplement(ηc, ηv, γ, Δx, Δy, ncx  ,ncy)
 end
 
 
-#2D Stokes solve on the NORMALISED unit box [-1,1]^2.
-# `scale` is the old `zoom` knob: physical half-width = scale * a, so the
-# normalised ellipse has semi-axes (a/S, b/S) = (1/scale, b/(scale*a)).
-# scale > 1 keeps the inclusion inside the box (scale = 1 => tips touch the walls).
-@views function Stokes2D(n, test; scale = 3.0)
+#2D Stokes solve on the real physical coordinate grid
+#zoom controls how much matrix
+# material surrounds the ellipse (domain half-width = zoom * a).
+@views function Stokes2D(n, test; zoom = 3.0)
 
     #Pull the same physical parameters
+    @info "($test)"
     params   = preset(test)
     ηm       = params.ηm
     γ̇, ε̇, ζ̇ = params.γ̇, params.ε̇, params.ζ̇
-    a, b     = ellipse_axes(params.t)   # true physical semi-axes (a >= 2 always)
+    a, b     = ellipse_axes(params.t)   # true physical semi-axes of the inclusion
+    # a, b = 0.1, 0.1
     comp     = true         # keep true :D
     one_iter = false        # true: simple DR --- false: PH/DR
 
@@ -110,17 +106,8 @@ end
     if !comp
         params = merge(params, (ξm = 1e100*params.ξm, ξi = 1e100*params.ξi))
     end
-
-    # --- normalisation --------------------------------------------------
-    # X_phys = S * x_norm,  x_norm ∈ [-1,1]
-    S        = scale * a              # physical half-width of the box
-    an, bn   = a/S, b/S              # normalised semi-axes (an = 1/scale)
-    Lx, Ly   = 2.0, 2.0             # fixed unit box [-1,1]^2
-    # analytics evaluated at a NORMALISED point; returns PHYSICAL-unit fields.
-    # Remember to divide velocities by S; p and tau are scale-invariant.
-    anal(x, y) = f_anal(@SVector([S*x, S*y]); params=params)
-    # --------------------------------------------------------------------
-
+    Lx, Ly   = 2*zoom*a, 2*zoom*a
+    # Lx, Ly   = 1.0, 1.0
     # Numerics
     ncx, ncy = n, n         # numerical grid resolution
     ϵ        = 1e-7         # tolerance
@@ -129,8 +116,8 @@ end
     c_fact   = 0.5          # damping factor
     C        = 0.99
     dτ_local = false         # helps a little bit sometimes, sometimes not!
-    γfact    = 5           # penalty: multiplier to the arithmetic mean of η
-    rel_drop = 1e-3         # relative drop of velocity residual per PH iteration
+    γfact    = 5             # penalty: multiplier to the arithmetic mean of η
+    rel_drop = 1e-3          # relative drop of velocity residual per PH iteration
     nPH      = 100
     # Preprocessing
     Δx, Δy  = Lx/ncx, Ly/ncy
@@ -168,14 +155,14 @@ end
     ηv       = ηm .* ones(ncx+1,ncy+1)
     ηc_sharp = ηm .* ones(ncx  ,ncy  )
     ηv_sharp = ηm .* ones(ncx+1,ncy+1)
-    # Initialisation (normalised grid on [-1,1])
+    # Initialisation
     xce, yce = LinRange(-Lx/2-Δx/2, Lx/2+Δx/2, ncx+2), LinRange(-Ly/2-Δy/2, Ly/2+Δy/2, ncy+2)
     xc, yc   = LinRange(-Lx/2+Δx/2, Lx/2-Δx/2, ncx), LinRange(-Ly/2+Δy/2, Ly/2-Δy/2, ncy)
     xv, yv   = LinRange(-Lx/2, Lx/2, ncx+1), LinRange(-Ly/2, Ly/2, ncy+1)
     ηv_sharp   .= ηm
-    ηv_sharp[(xv./an).^2 .+ (yv'./bn).^2 .< 1.0 ] .= params.ηi
+    ηv_sharp[(xv./a).^2 .+ (yv'./b).^2 .< 1.0 ] .= params.ηi
     ηc_sharp   .= ηm
-    ηc_sharp[(xc./an).^2 .+ (yc'./bn).^2 .< 1.0 ] .= params.ηi
+    ηc_sharp[(xc./a).^2 .+ (yc'./b).^2 .< 1.0 ] .= params.ηi
     # Use sharp viscosity
     ηc .= ηc_sharp
     ηv .= ηv_sharp
@@ -184,7 +171,7 @@ end
     ηv[2:end-1,2:end-1] .= av4_harm(ηc_sharp)
     # Set viscosity
     ηb    .= params.ξm
-    ηb[(xc./an).^2 .+ (yc'./bn).^2 .< 1.0 ] .= params.ξi
+    ηb[(xc./a).^2 .+ (yc'./b).^2 .< 1.0 ] .= params.ξi
 
     # Select γ
     γi   = γfact*mean(ηc).*ones(size(ηc))
@@ -224,42 +211,56 @@ end
     βVy .= 2 .* dτVy ./ (2 .+ cVy.*dτVy)
     αVx .= (2 .- cVx.*dτVx) ./ (2 .+ cVx.*dτVx)
     αVy .= (2 .- cVy.*dτVy) ./ (2 .+ cVy.*dτVy)
-    # Initial condition (normalised: V_num = ε̇ * x_norm already, no /S needed)
+    # Initial condition
     Vx     .=   ε̇.*xv .+  0*yce' .+  ζ̇ .*xv
     Vy     .=   0*xce .-  ε̇.*yv' .+  ζ̇ .*yv'
     Vx_ini  = copy(Vx)
     Vy_ini  = copy(Vy)
+    Vx[2:end-1,:] .= 0 # ensure non zero initial pressure residual
+    Vy[:,2:end-1] .= 0 # ensure non zero initial pressure residual
     Va = (
         x = zeros(ncx+1, ncy+2),
         y = zeros(ncx+2, ncy+1)
     )
     @time for I in CartesianIndices(Vx)
         i, j      = I[1], I[2]
-        sol       = anal(xv[i], yce[j])
-        Vx[i,j]   = sol.V[1]/S
-        Va.x[i,j] = sol.V[1]/S
+        X         = @SVector([xv[i]; yce[j]])
+        sol       = f_anal(X; params=params)
+        # Vx[i,j]   = ε̇.*xv[i]
+        Vx[i,j]   = sol.V[1]
+        Va.x[i,j] = sol.V[1]
     end
 
     for I in CartesianIndices(Vy)
         i, j      = I[1], I[2]
-        sol       = anal(xce[i], yv[j])
-        Vy[i,j]   = sol.V[2]/S
-        Va.y[i,j] = sol.V[2]/S
+        X         = @SVector([xce[i]; yv[j]])
+        sol       = f_anal(X; params=params)
+        # Vy[i,j]   = -ε̇.*yv[j]
+        Vy[i,j]   = sol.V[2]
+        Va.y[i,j] = sol.V[2]
     end
     Vx[2:end-1,:] .= 0 # ensure non zero initial pressure residual
     Vy[:,2:end-1] .= 0 # ensure non zero initial pressure residual
 
-    #boundary conditions (physical coord in via `anal`, velocity /S out)
+    # boundary conditions
     VxS, VxN = zeros(size(Vx,1)), zeros(size(Vx,1))
     for i in eachindex(VxS)
-        VxS[i] = anal(xv[i], -Ly/2).V[1]/S
-        VxN[i] = anal(xv[i],  Ly/2).V[1]/S
+        X      = @SVector([xv[i]; -Ly/2])
+        sol    = f_anal(X; params=params)
+        VxS[i] = sol.V[1]
+        X      = @SVector([xv[i];  Ly/2])
+        sol    = f_anal(X; params=params)
+        VxN[i] = sol.V[1]
     end
 
     VyW, VyE = zeros(size(Vy,2)), zeros(size(Vy,2))
     for j in eachindex(VyW)
-        VyW[j] = anal(-Lx/2, yv[j]).V[2]/S
-        VyE[j] = anal( Lx/2, yv[j]).V[2]/S
+        X      = @SVector([-Lx/2, yv[j]])
+        sol    = f_anal(X; params=params)
+        VyW[j] = sol.V[2]
+        X      = @SVector([Lx/2; yv[j]])
+        sol    = f_anal(X; params=params)
+        VyE[j] = sol.V[2]
     end
 
     Pa = zeros(ncx, ncy)
@@ -271,7 +272,8 @@ end
     )
     for I in CartesianIndices(Pa)
         i, j       = I[1], I[2]
-        sol        = anal(xc[i], yc[j])   # p, tau are scale-invariant: no /S
+        X          = @SVector([xc[i]; yc[j]])
+        sol        = f_anal(X; params=params)
         Pa[i,j]    = sol.p
         Sa.xx[i,j] = sol.τ[1,1] - sol.p
         Sa.yy[i,j] = sol.τ[2,2] - sol.p
@@ -280,7 +282,9 @@ end
 
     for I in CartesianIndices(Sa.xy)
         i, j        = I[1], I[2]
-        Sa.xy[i,j]  = anal(xv[i], yv[j]).τ[1,2]
+        X           = @SVector([xv[i]; yv[j]])
+        sol         = f_anal(X; params=params)
+        Sa.xy[i,j]  = sol.τ[1,2]
     end
 
     # Iteration loop
@@ -291,6 +295,8 @@ end
         # Boundaries
         Vx[:,1] .= 2*VxS .- Vx[:,2]; Vx[:,end] .= 2*VxN .- Vx[:,end-1]
         Vy[1,:] .= 2*VyW .- Vy[2,:]; Vy[end,:] .= 2*VyE .- Vy[end-1,:]
+        # Vx[:,1] .= Vx[:,2]; Vx[:,end] .= Vx[:,end-1]
+        # Vy[1,:] .= Vy[2,:]; Vy[end,:] .= Vy[end-1,:]
         # Divergence
         ∇V    .= (Vx[2:end,2:end-1] .- Vx[1:end-1,2:end-1])./Δx .+ (Vy[2:end-1,2:end] .- Vy[2:end-1,1:end-1])./Δy
         # Deviatoric strain rate
@@ -305,13 +311,15 @@ end
         Rx    .= (.-(Pt[2:end,:] .- Pt[1:end-1,:])./Δx .+ (Txx[2:end,:] .- Txx[1:end-1,:])./Δx .+ (Txy[2:end-1,2:end] .- Txy[2:end-1,1:end-1])./Δy)
         Ry    .= (.-(Pt[:,2:end] .- Pt[:,1:end-1])./Δy .+ (Tyy[:,2:end] .- Tyy[:,1:end-1])./Δy .+ (Txy[2:end,2:end-1] .- Txy[1:end-1,2:end-1])./Δx)
         Rp    .= .-∇V .- comp*Pt./ηb
-        
         # Residual check
         errVx = norm(Rx); errVy = norm(Ry); errPt = norm(Rp)
         if itPH==1 errVx0=errVx; errVy0=errVy; errPt0=errPt; end
         err = maximum([errVx/errVx0, errVy/errVy0, errPt/errPt0])
-        @printf("itPH = %02d iter = %06d iter/nx = %03d, err = %1.3e norm[Rx=%1.3e, Ry=%1.3e, Rp=%1.3e] \n", itPH, iter, iter/ncx, err, errVx/errVx0, errVy/errVy0, errPt/errPt0)
-        if (err<ϵ) break end
+        @printf("itPH = %02d iter = %06d iter/nx = %03d, err = %1.3e\n        norm[Rx=%1.3e, Ry=%1.3e, Rp=%1.3e] \n        norm[Rx=%1.3e, Ry=%1.3e, Rp=%1.3e]\n", itPH, iter, iter/ncx, err, errVx/errVx0, errVy/errVy0, errPt/errPt0, errVx, errVy, errPt)
+        Q = Δy*sum(Vx[end,2:end-1] .- Vx[1,2:end-1]) .+
+        Δx*sum(Vy[2:end-1,end] .- Vy[2:end-1,1])
+        @show Q, mean(Rp)
+            if (err<ϵ) break end
         # Set tolerance of velocity solve proportional to residual
         ϵ_vel = err*rel_drop
         itPT = 0.
@@ -382,8 +390,9 @@ end
         zz = abs.(Szz .- Sa.zz),
         xy = abs.(Txy .- Sa.xy),
     )
+
     @show iter/ncx
-    return (; Vx, Vy, Pt, Va, Pa, Ve, Pe, Se, Lx, Ly, xv, yv, xc, yc, xce, yce, a, b, an, bn, S)
+    return (; Vx, Vy, Pt, Va, Pa, Ve, Pe, Se, Lx, Ly, xv, yv, xc, yc, xce, yce, a, b)
 end
 
 let
@@ -392,8 +401,8 @@ let
     #test = :Duretz2026_2
     #test = :Duretz2026_3
 
-    nc_list = [601]
-    scale   = 3.0            # physical half-width = scale * ellipse semi-major axis a
+    nc_list = [101]
+    zoom    = 1.3            # domain half-width = zoom * ellipse semi-major axis a
 
     # Storage for convergence
     err_Vx = Float64[]
@@ -402,26 +411,25 @@ let
 
     for nc in nc_list
 
-        num    = Stokes2D(nc, test; scale=scale)
+        num    = Stokes2D(nc, test; zoom=zoom)
         params = preset(test)
-        S      = num.S
 
         Vx_an = zeros(nc+1, nc+2)
         Vy_an = zeros(nc+2, nc+1)
         P_an  = zeros(nc,   nc  )
         for I in CartesianIndices(Vx_an)
             i, j = I[1], I[2]
-            sol = f_anal(@SVector([S*num.xv[i], S*num.yce[j]]); params=params)
-            Vx_an[i,j] = sol.V[1]/S
+            sol = f_anal(@SVector([num.xv[i], num.yce[j]]); params=params)
+            Vx_an[i,j] = sol.V[1]
         end
         for I in CartesianIndices(Vy_an)
             i, j = I[1], I[2]
-            sol = f_anal(@SVector([S*num.xce[i], S*num.yv[j]]); params=params)
-            Vy_an[i,j] = sol.V[2]/S
+            sol = f_anal(@SVector([num.xce[i], num.yv[j]]); params=params)
+            Vy_an[i,j] = sol.V[2]
         end
         for I in CartesianIndices(P_an)
             i, j = I[1], I[2]
-            sol = f_anal(@SVector([S*num.xc[i], S*num.yc[j]]); params=params)
+            sol = f_anal(@SVector([num.xc[i], num.yc[j]]); params=params)
             P_an[i,j] = sol.p
         end
 
@@ -469,14 +477,14 @@ let
 
 end
 
-#=
-# Convergence study: mean error vs resolution for all four tests
 
+# Convergence study: mean error vs resolution for all four tests
+#=
 let
-    tests   = [ :Schmid2003, :Duretz2026_2]
-    titles  = ["Test 1", "Test 2"]
-    nc_list = [51, 101]
-    scale   = 3.0
+    tests   = [ :Schmid2003, :Duretz2026_1, :Duretz2026_2, :Duretz2026_3]
+    titles  = ["Test 1", "Test 2","Test 3", "Test 4"]
+    nc_list = [51, 101, 201, 401]
+    zoom   = 3.0
 
     fields = [
         (:vx,  "vx",  :steelblue),
@@ -498,13 +506,12 @@ let
         params = preset(test)
 
         for nc in nc_list
-            num = Stokes2D(nc, test; scale = scale)
+            num = Stokes2D(nc, test; zoom = zoom)
             push!(invh, nc/num.Lx)          # normalised 1/h  (Lx = 2)
-            S = num.S
 
-            Vx_an = [f_anal(@SVector([S*num.xv[i],  S*num.yce[j]]); params = params).V[1]/S for i in axes(num.Vx, 1), j in axes(num.Vx, 2)]
-            Vy_an = [f_anal(@SVector([S*num.xce[i], S*num.yv[j] ]); params = params).V[2]/S for i in axes(num.Vy, 1), j in axes(num.Vy, 2)]
-            P_an  = [f_anal(@SVector([S*num.xc[i],  S*num.yc[j] ]); params = params).p      for i in axes(num.Pt, 1), j in axes(num.Pt, 2)]
+            Vx_an = [f_anal(@SVector([num.xv[i],  num.yce[j]]); params = params).V[1] for i in axes(num.Vx, 1), j in axes(num.Vx, 2)]
+            Vy_an = [f_anal(@SVector([num.xce[i], num.yv[j] ]); params = params).V[2] for i in axes(num.Vy, 1), j in axes(num.Vy, 2)]
+            P_an  = [f_anal(@SVector([num.xc[i],  num.yc[j] ]); params = params).p      for i in axes(num.Pt, 1), j in axes(num.Pt, 2)]
 
             push!(ε[:vx], mean(abs.(Vx_an .- num.Vx)))
             push!(ε[:vy], mean(abs.(Vy_an .- num.Vy)))

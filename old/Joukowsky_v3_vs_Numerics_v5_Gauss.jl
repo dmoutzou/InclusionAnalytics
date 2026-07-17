@@ -526,8 +526,8 @@ end
 let
     tests   = [ :Schmid2003, :Duretz2026_1, :Duretz2026_2, :Duretz2026_3]
     titles  = ["Test 1", "Test 2","Test 3", "Test 4"]
-    nc_list = [51, 101, 201]
-    zoom   = 3.0
+    nc_list = [51, 101, 201, 401, 801]
+    zoom   = 2.0
 
     fields = [
         (:vx,  "vx",  :steelblue),

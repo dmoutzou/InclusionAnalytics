@@ -440,21 +440,12 @@ end
 
 let 
 
-<<<<<<< Updated upstream:old/NumericsVsAnalyticsCompressibleInclusion_v12.jl
-    # test = :Schmid2003
-    test = :Duretz2026_1   
-    # test = :Duretz2026_2
-    # test = :Duretz2026_3
-
-    nc = [101]#[51 101 201 401]
-=======
      #test = :Schmid2003
      #test = :Duretz2026_1   
      test = :Duretz2026_2
     #test = :Duretz2026_3
 
     nc = [200 ]
->>>>>>> Stashed changes:NumericsVsAnalyticsCompressibleInclusion_v12.jl
     L1  = (
         Vx  = zeros(length(nc)), 
         Vy  = zeros(length(nc)), 
