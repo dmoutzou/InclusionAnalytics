@@ -1,3 +1,30 @@
+function preset(test, ellipse=false)
+    if test == :Schmid2003
+        ηm = 1.0; ηi = 1000.0;  ξm, ξi = 1e10, 1e10
+        ε̇ = -0.5;  γ̇ = 0.0;  ζ̇ = 0.0;  t = 2.0;  α = 0.0; ri = 0.1
+    elseif test == :Duretz2026_1
+        ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e0, 1e0
+        ε̇ =-1e0;  γ̇ = 0.0;  ζ̇ = 0.0;  t = 2.0;  α = 0.0; ri = 0.1
+    elseif test == :Duretz2026_2
+        ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e0, 10e0
+        ε̇ = 1e-10;  γ̇ = 0.0;  ζ̇ = 1e0;  t = 2.0;  α = 0.0; ri = 0.1
+    elseif test == :Duretz2026_3
+        ηm, ηi = 1.0, 1000.0;  ξm, ξi = 1e10, 1e10
+        ε̇ = 0.0;  γ̇ = 1.0;  ζ̇ = 0.0;  t = 2.0;  α = 30/180*pi; ri = 0.1
+    else
+        error("unknown test $test")
+    end
+    if ellipse
+        r1, r2     = ellipse_axes(t) # true physical semi-axes (a >= 2 always)
+        sc         = r1 / ri 
+    else
+        r1, r2, sc = ri, ri, 1.0
+    end
+    return (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, 
+            ε̇=ε̇, γ̇=γ̇, ζ̇=ζ̇, 
+            t=t, α=α, r1=r1/sc, r2=r2/sc, sc=sc)
+end
+
 # Parameter sets
 function preset_circle(test)
     if test == :Schmid2003
