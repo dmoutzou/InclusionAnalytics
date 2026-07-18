@@ -5,15 +5,19 @@ using CairoMakie, MathTeXEngine, StaticArrays, Statistics
 # a circular or an elliptical inclusion. 
 let
     geometry = :elliptical     # :circular | :elliptical
-
-    tests   = [:Schmid2003, :Duretz2026_1, :Duretz2026_2, :Duretz2026_3]
-    titles  = ["Test 1", "Test 2", "Test 3", "Test 4"]
-    nc_list = [51, 101, 201, 401]
+    tests    = [:Schmid2003, :Duretz2026_1, :Duretz2026_2, :Duretz2026_3]
+    titles   = ["Test 1", "Test 2", "Test 3", "Test 4"]
+    nc_list  = [51, 101, 201, 401]
+    f_anal   = geometry==:circular ? analytics_circle : analytics_ellipse
 
     fields = [
-        (:vx, "vx", :steelblue),
-        (:vy, "vy", :orange),
-        (:p,  "p",  :seagreen),
+        (:vx,  "vx",   :steelblue),
+        (:vy,  "vy",   :orange),
+        (:p,   "p",    :seagreen),
+        (:σxx, "σxx",  :green),
+        (:σyy, "σyy",  :yellow),
+        (:σzz, "σzz",  :red),
+        (:σxy, "σxy",  :black),
     ]
 
     fig = Figure(size = (850, 650), fontsize = 12)
@@ -21,6 +25,7 @@ let
     labels_for_legend = String[]
 
     for (k, test) in enumerate(tests)
+        params   = preset(test, geometry)
         row, col = divrem(k-1, 2) .+ (1, 1)
         ax = Axis(fig[row, col]; xscale = log10, yscale = log10,
                    title = titles[k], xlabel = "1/h", ylabel = "ε")
@@ -29,17 +34,28 @@ let
         ε    = Dict(sym => Float64[] for (sym, _, _) in fields)
 
         for nc in nc_list
-            V, Pt, S, X, params, scale = Stokes2D(nc, test; geometry=geometry)
+
+            @info "Test $(test) - nc = $(nc)"
+
+            # Numerics
+            V, P, σ, X = Stokes2D(nc, test, params, f_anal)
+    
+            # Analytics
+            Va, Pa, σa = analytics_stag(f_anal, X, params, geometry)
+
+            # Errors
+            Ve, Pe, σe = errors_stag(V, P, σ, Va, Pa, σa)
+
             Lx = X.xv[end] - X.xv[1]
             push!(invh, nc/Lx)
 
-            Vx_an = [f_anal(@SVector([X.xv[i],  X.yce[j]]); params=params, geometry=geometry, S=scale).V[1] for i in axes(V.x, 1), j in axes(V.x, 2)]
-            Vy_an = [f_anal(@SVector([X.xce[i], X.yv[j] ]); params=params, geometry=geometry, S=scale).V[2] for i in axes(V.y, 1), j in axes(V.y, 2)]
-            P_an  = [f_anal(@SVector([X.xc[i],  X.yc[j] ]); params=params, geometry=geometry, S=scale).p    for i in axes(Pt,  1), j in axes(Pt,  2)]
-
-            push!(ε[:vx], mean(abs.(Vx_an .- V.x)))
-            push!(ε[:vy], mean(abs.(Vy_an .- V.y)))
-            push!(ε[:p],  mean(abs.(P_an  .- Pt )))
+            push!(ε[:vx],  mean(abs.(Ve.x)))
+            push!(ε[:vy],  mean(abs.(Ve.y)))
+            push!(ε[:p],   mean(abs.(Pe)))
+            push!(ε[:σxx], mean(abs.(σe.xx)))
+            push!(ε[:σyy], mean(abs.(σe.yy)))
+            push!(ε[:σzz], mean(abs.(σe.zz)))
+            push!(ε[:σxy], mean(abs.(σe.xy)))
         end
 
         for (sym, label, color) in fields

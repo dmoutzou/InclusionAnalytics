@@ -41,7 +41,7 @@ function errors_stag(V, P, σ, Va, Pa, σa)
     Ve  = (x=abs.(V.x .- Va.x), y = abs.(V.y .- Va.y))
     Pe  = abs.(P .- Pa)
     σe = ( xx=abs.(σ.xx .- σa.xx), yy = abs.(σ.yy .- σa.yy), zz = abs.(σ.zz .- σa.zz),  xy = abs.(σ.xy .- σa.xy))
-    @printf("mean|Vx error| = %1.3e   mean|Vy error| = %1.3e   mean|P error| = %1.3e\n", mean(Ve.x), mean(Ve.y), mean(Pe))
+    @printf("mean|Vx error|  = %1.3e   mean|Vy error|  = %1.3e   mean|P error|   = %1.3e\n", mean(Ve.x), mean(Ve.y), mean(Pe))
     @printf("mean|σxx error| = %1.3e   mean|σyy error| = %1.3e   mean|σzz error| = %1.3e   mean|σxy error| = %1.3e\n",
             mean(σe.xx), mean(σe.yy), mean(σe.zz), mean(σe.xy))
     return Ve, Pe, σe
