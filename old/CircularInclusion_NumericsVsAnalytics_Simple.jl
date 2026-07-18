@@ -16,11 +16,11 @@ let
 
     #Analytical on the staggered grids (using the same solution that set the BCs)
     f_anal = formulation == :new ? Analytics_new : Analytics_old
-    bc_params_full = preset_circle(test)
-    params_bc = (ηm=bc_params_full.ηm, ηi=bc_params_full.ηi,
-                 ξm=bc_params_full.ξm, ξi=bc_params_full.ξm,
-                 γ̇=bc_params_full.γ̇, ε̇=bc_params_full.ε̇, ζ̇=bc_params_full.ζ̇,
-                 ri=bc_params_full.ri)
+    params_full = preset_circle(test)
+    params_bc = (ηm=params_full.ηm, ηi=params_full.ηi,
+                 ξm=params_full.ξm, ξi=params_full.ξm,
+                 γ̇=params_full.γ̇, ε̇=params_full.ε̇, ζ̇=params_full.ζ̇,
+                 ri=params_full.ri)
 
     Vx_an = zeros(nc+1, nc+2);  Vy_an = zeros(nc+2, nc+1);  P_an = zeros(nc, nc)
     for I in CartesianIndices(Vx_an)

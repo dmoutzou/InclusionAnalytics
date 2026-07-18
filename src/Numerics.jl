@@ -7,12 +7,11 @@ const gp3 = (-sqrt(3/5), 0.0, sqrt(3/5))   # Gauss–Legendre nodes on [-1, 1]
 const gw3 = ( 5/9,       8/9, 5/9      )   # Gauss–Legendre weights (sum = 2)
 
 # Analytical field at a NORMALISED point Xn ∈ the unit box.
-function f_anal(Xn; params, geometry, S=1.0)
+function f_anal(Xn, params; geometry=:circular)
     if geometry == :circular
         return analytics_circle(Xn; params=params)
     elseif geometry == :elliptical
-        sol = analytics_ellipse(to_zeta(S .* Xn); params=params)
-        return (V=sol.V./S, p=sol.p, τ=sol.τ, τzz=sol.τzz)
+        return analytics_ellipse(Xn; params=params)
     else
         error("Unknown geometry: $geometry")
     end
@@ -20,12 +19,12 @@ end
 
 # The problem is that the analytical solution gives point values, which may not represent an entire face
 # So we can average using the Gauss-Legendre Quadrature
-function face_avg(x0, y0, Δ, dim, comp; params, geometry, S=1.0)
+function face_avg(x0, y0, Δ, dim, comp; params, geometry)
     acc = 0.0
     for k in 1:3
         s  = 0.5*Δ*gp3[k]
         Xn = dim == 2 ? @SVector([x0, y0 + s]) : @SVector([x0 + s, y0])
-        acc += 0.5*gw3[k] * f_anal(Xn; params=params, geometry=geometry, S=S).V[comp]
+        acc += 0.5*gw3[k] * f_anal(Xn, params, geometry=geometry).V[comp]
     end
     return acc
 end
@@ -57,41 +56,20 @@ function Gershgorin_Stokes2D_SchurComplement(ηc, ηv, γ, Δx, Δy, ncx, ncy)
 end
 
 # Stokes solver
-@views function Stokes2D(n, test, params; geometry=:circular, a_target=0.2,
+@views function Stokes2D(n, test, params; geometry=:circular,
                           γfact  = geometry == :circular ? 60    : 5,
                           dτ_local = geometry == :circular ? true  : false,
                           nPH    = geometry == :circular ? 50    : 100)
 
     # for the elliptical case I use  [-1,1], so `a_target` is the
     # inclusion's normalised semi-major axis directly on that box.
-    Lx, Ly   = geometry == :circular ? (1.0, 1.0) : (2.0, 2.0)
+    Lx, Ly   = 1.0, 1.0
     comp     = true
     one_iter = false
-
-    params = preset(test, geometry)
-    # ε̇, ζ̇   = params.ε̇, params.ζ̇
-
-        # (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, r1=r1, r2=r2, t=t, α=α, sc=sc, ε̇=ε̇, γ̇=γ̇, ζ̇=ζ̇)
-
     ηm, ηi, ξm, ξi, r1, r2, t, α, sc, ε̇, γ̇, ζ̇ = params
-
-
-    # # Normalisation if we use the elliptical case
-    # if geometry == :circular
-    #     S  = 1.0
-    #     an = params.ri
-    #     bn = params.ri
-    # elseif geometry == :elliptical
-    #     a, b = ellipse_axes(params.t)
-    #     S    = a / a_target
-    #     an   = a_target
-    #     bn   = b / S
-    # else
-    #     error("Unknown geometry: $geometry")
-    # end
-
+    
     # For BCs use the selected analytical solution with physical compressibility
-    bc_params = comp ? params : merge(params, (ξm = 1e100*params.ξm, ξi = 1e100*params.ξi))
+    params = comp ? params : merge(params, (ξm = 1e100*params.ξm, ξi = 1e100*params.ξi))
 
     ncx, ncy = n, n
     ϵ        = 1e-7
@@ -177,13 +155,13 @@ end
     # Boundary values from analytical solution
     VxS, VxN = zeros(ncx+1), zeros(ncx+1)
     for i in eachindex(VxS)
-        VxS[i] = f_anal(@SVector([xv[i]; -Ly/2]); params=bc_params, geometry=geometry).V[1]
-        VxN[i] = f_anal(@SVector([xv[i];  Ly/2]); params=bc_params, geometry=geometry).V[1]
+        VxS[i] = f_anal(@SVector([xv[i]; -Ly/2]), params, geometry=geometry).V[1]
+        VxN[i] = f_anal(@SVector([xv[i];  Ly/2]), params, geometry=geometry).V[1]
     end
     VyW, VyE = zeros(ncy+1), zeros(ncy+1)
     for j in eachindex(VyW)
-        VyW[j] = f_anal(@SVector([-Lx/2; yv[j]]); params=bc_params, geometry=geometry).V[2]
-        VyE[j] = f_anal(@SVector([ Lx/2; yv[j]]); params=bc_params, geometry=geometry).V[2]
+        VyW[j] = f_anal(@SVector([-Lx/2; yv[j]]), params, geometry=geometry).V[2]
+        VyE[j] = f_anal(@SVector([ Lx/2; yv[j]]), params, geometry=geometry).V[2]
     end
 
     # Initial condition
@@ -274,10 +252,10 @@ end
     Syy = -Pt .+ Tyy
     Szz = -Pt .+ (-Txx .- Tyy)
 
-    V = (x=Vx, y=Vy)
-    S_out = (xx=Sxx, yy=Syy, zz=Szz, xy=Txy)
+    V  = (x=Vx, y=Vy)
+    σ  = (xx=Sxx, yy=Syy, zz=Szz, xy=Txy)
     X  = (xv=xv, yv=yv, xce=xce, yce=yce, xc=xc, yc=yc)
 
     @show iter/ncx
-    return V, Pt, S_out, X
+    return V, Pt, σ, X
 end

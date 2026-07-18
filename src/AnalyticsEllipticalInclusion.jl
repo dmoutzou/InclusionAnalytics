@@ -24,7 +24,8 @@ function analytics_ellipse(X; params)
     ηm, ηi, ξm, ξi, ri, r2, t, α, sc, ε̇, γ̇, ζ̇ = params
     # (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, r1=r1, r2=r2, t=t, α=α, sc=sc, ε̇=ε̇, γ̇=γ̇, ζ̇=ζ̇)
     ri      = t_to_ri(t)
-    τ, σ    = X[1], X[2]
+    Ζ       = to_zeta(sc.*X)
+    τ, σ    = Ζ[1], Ζ[2]
     # Kolosov
     νm      = (3.0ξm - 2.0ηm) / (2.0*(3.0ξm + ηm))
     νi      = (3.0ξi - 2.0ηi) / (2.0*(3.0ξi + ηi))
@@ -94,7 +95,7 @@ function analytics_ellipse(X; params)
     p       = -(sxx + syy + szz) / 3.0        # full 3D mean pressure -(σxx+σyy+σzz)/3
     conj_ωpr = 1.0 - 1.0/conj(λ)^2         # general conj(ω′(λ))
     vel  = (κ_loc*ϕ - (λ + 1.0/λ)/conj_ωpr*conj(ϕ′) - conj(ψ)) / (2*η_loc)
-    return (V   = @SVector([real(vel), imag(vel)]),
+    return (V   = @SVector([real(vel)/sc, imag(vel)/sc]),
             p   = p,
             τ   = @SMatrix([sxx+p  sxy; sxy  syy+p]),
             τzz = szz + p)

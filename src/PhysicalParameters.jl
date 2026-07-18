@@ -1,4 +1,4 @@
-function preset(test, geometry=:elliptical)
+function preset(test, geometry)
     # if geometry == :elliptical
         if test == :Schmid2003
             ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e10, 1e10
@@ -49,10 +49,10 @@ function preset(test, geometry=:elliptical)
 
     if geometry == :elliptical
         r1, r2     = ellipse_axes(t) # true physical semi-axes (a >= 2 always)
-        sc         = r1 / ri 
+        sc         = r2 / ri 
     else
         r1, r2, sc = ri, ri, 1.0
     end
 
-    return (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, r1=r1, r2=r2, t=t, α=α, sc=sc, ε̇=ε̇, γ̇=γ̇, ζ̇=ζ̇)
+    return (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, r1=r1/sc, r2=r2/sc, t=t, α=α, sc=sc, ε̇=ε̇, γ̇=γ̇, ζ̇=ζ̇)
 end

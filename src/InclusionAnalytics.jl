@@ -15,6 +15,6 @@ include("Numerics.jl")
 export Stokes2D, f_anal
 
 include("AnalyticsStagerredGrid.jl")
-export eval_analytics_stag
+export analytics_stag, errors_stag
 
 end
