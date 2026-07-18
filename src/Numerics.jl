@@ -6,25 +6,14 @@
 const gp3 = (-sqrt(3/5), 0.0, sqrt(3/5))   # Gauss–Legendre nodes on [-1, 1]
 const gw3 = ( 5/9,       8/9, 5/9      )   # Gauss–Legendre weights (sum = 2)
 
-# Analytical field at a NORMALISED point Xn ∈ the unit box.
-function f_anal(Xn, params; geometry=:circular)
-    if geometry == :circular
-        return analytics_circle(Xn; params=params)
-    elseif geometry == :elliptical
-        return analytics_ellipse(Xn; params=params)
-    else
-        error("Unknown geometry: $geometry")
-    end
-end
-
 # The problem is that the analytical solution gives point values, which may not represent an entire face
 # So we can average using the Gauss-Legendre Quadrature
-function face_avg(x0, y0, Δ, dim, comp; params, geometry)
+function face_avg(f_anal, x0, y0, Δ, dim, comp; params)
     acc = 0.0
     for k in 1:3
         s  = 0.5*Δ*gp3[k]
         Xn = dim == 2 ? @SVector([x0, y0 + s]) : @SVector([x0 + s, y0])
-        acc += 0.5*gw3[k] * f_anal(Xn, params, geometry=geometry).V[comp]
+        acc += 0.5*gw3[k] * f_anal(Xn; params).V[comp]
     end
     return acc
 end
@@ -56,10 +45,7 @@ function Gershgorin_Stokes2D_SchurComplement(ηc, ηv, γ, Δx, Δy, ncx, ncy)
 end
 
 # Stokes solver
-@views function Stokes2D(n, test, params; geometry=:circular,
-                          γfact  = geometry == :circular ? 60    : 5,
-                          dτ_local = geometry == :circular ? true  : false,
-                          nPH    = geometry == :circular ? 50    : 100)
+@views function Stokes2D(n, test, params, f_anal; γfact = 60 )
 
     # for the elliptical case I use  [-1,1], so `a_target` is the
     # inclusion's normalised semi-major axis directly on that box.
@@ -67,7 +53,7 @@ end
     comp     = true
     one_iter = false
     ηm, ηi, ξm, ξi, r1, r2, t, α, sc, ε̇, γ̇, ζ̇ = params
-    
+
     # For BCs use the selected analytical solution with physical compressibility
     params = comp ? params : merge(params, (ξm = 1e100*params.ξm, ξi = 1e100*params.ξi))
 
@@ -77,6 +63,8 @@ end
     nout     = 100
     c_fact   = 0.5
     rel_drop = 1e-3
+    dτ_local = false
+    nPH      = 100
 
     Δx, Δy  = Lx/ncx, Ly/ncy
     Pt       = zeros(ncx,   ncy  )
@@ -155,13 +143,13 @@ end
     # Boundary values from analytical solution
     VxS, VxN = zeros(ncx+1), zeros(ncx+1)
     for i in eachindex(VxS)
-        VxS[i] = f_anal(@SVector([xv[i]; -Ly/2]), params, geometry=geometry).V[1]
-        VxN[i] = f_anal(@SVector([xv[i];  Ly/2]), params, geometry=geometry).V[1]
+        VxS[i] = f_anal(@SVector([xv[i]; -Ly/2]); params).V[1]
+        VxN[i] = f_anal(@SVector([xv[i];  Ly/2]); params).V[1]
     end
     VyW, VyE = zeros(ncy+1), zeros(ncy+1)
     for j in eachindex(VyW)
-        VyW[j] = f_anal(@SVector([-Lx/2; yv[j]]), params, geometry=geometry).V[2]
-        VyE[j] = f_anal(@SVector([ Lx/2; yv[j]]), params, geometry=geometry).V[2]
+        VyW[j] = f_anal(@SVector([-Lx/2; yv[j]]); params).V[2]
+        VyE[j] = f_anal(@SVector([ Lx/2; yv[j]]); params).V[2]
     end
 
     # Initial condition
@@ -172,13 +160,13 @@ end
     # Apply Gauss–Legendre Quadrature
     for j in 2:ncy+1                    # west & east faces span yv[j-1]..yv[j]
         ym         = 0.5*(yv[j-1] + yv[j])
-        Vx[1,   j] = face_avg(-Lx/2, ym, Δy, 2, 1; params=params, geometry=geometry)
-        Vx[end, j] = face_avg( Lx/2, ym, Δy, 2, 1; params=params, geometry=geometry)
+        Vx[1,   j] = face_avg(f_anal, -Lx/2, ym, Δy, 2, 1; params=params)
+        Vx[end, j] = face_avg(f_anal,  Lx/2, ym, Δy, 2, 1; params=params)
     end
     for i in 2:ncx+1                    # south & north faces span xv[i-1]..xv[i]
         xm         = 0.5*(xv[i-1] + xv[i])
-        Vy[i, 1  ] = face_avg(xm, -Ly/2, Δx, 1, 2; params=params, geometry=geometry)
-        Vy[i, end] = face_avg(xm,  Ly/2, Δx, 1, 2; params=params, geometry=geometry)
+        Vy[i, 1  ] = face_avg(f_anal, xm, -Ly/2, Δx, 1, 2; params=params)
+        Vy[i, end] = face_avg(f_anal, xm,  Ly/2, Δx, 1, 2; params=params)
     end
     # Verification: discrete boundary flux should be ~1e-12 or below
     Q = Δy*sum(Vx[end,2:end-1] .- Vx[1,2:end-1]) +

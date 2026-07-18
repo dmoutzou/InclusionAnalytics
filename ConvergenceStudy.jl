@@ -5,7 +5,6 @@ using CairoMakie, MathTeXEngine, StaticArrays, Statistics
 # a circular or an elliptical inclusion. 
 let
     geometry = :elliptical     # :circular | :elliptical
-    a_target = 0.4           # only used when geometry == :elliptical, you can change he size of the inclusion
 
     tests   = [:Schmid2003, :Duretz2026_1, :Duretz2026_2, :Duretz2026_3]
     titles  = ["Test 1", "Test 2", "Test 3", "Test 4"]
@@ -30,7 +29,7 @@ let
         ε    = Dict(sym => Float64[] for (sym, _, _) in fields)
 
         for nc in nc_list
-            V, Pt, S, X, params, scale = Stokes2D(nc, test; geometry=geometry, a_target=a_target)
+            V, Pt, S, X, params, scale = Stokes2D(nc, test; geometry=geometry)
             Lx = X.xv[end] - X.xv[1]
             push!(invh, nc/Lx)
 

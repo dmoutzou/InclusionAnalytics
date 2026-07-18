@@ -5,11 +5,8 @@ using StaticArrays, Printf, Statistics, LinearAlgebra
 include("PhysicalParameters.jl")
 export preset
 
-include("AnalyticsCircularInclusion.jl")
-export analytics_circle
-
-include("AnalyticsEllipticalInclusion.jl")
-export joukowski, t_to_ri, ellipse_axes, to_zeta, analytics_ellipse
+include("Analytics.jl")
+export f_anal, analytics_circle, analytics_ellipse
 
 include("Numerics.jl")
 export Stokes2D, f_anal

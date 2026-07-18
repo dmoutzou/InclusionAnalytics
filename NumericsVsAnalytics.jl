@@ -7,10 +7,11 @@ let
     test     = :Schmid2003   # :Schmid2003 | :Duretz2026_1 | :Duretz2026_2 | :Duretz2026_3
     nc       = 101           # resolution
     params   = preset(test, geometry)
-
+    f_anal   = geometry==:circular ? analytics_circle : analytics_ellipse
+    
     # Numerics
-    V, P, σ, X = Stokes2D(nc, test, params; geometry=geometry)
-
+    V, P, σ, X = Stokes2D(nc, test, params, f_anal)
+    
     # Analytics
     Va, Pa, σa = analytics_stag(f_anal, X, params, geometry)
 

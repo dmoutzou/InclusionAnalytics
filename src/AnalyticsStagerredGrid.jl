@@ -14,15 +14,15 @@ function analytics_stag(f_anal, X, params, geometry)
     )
     for I in CartesianIndices(Va.x)
         i, j = I[1], I[2]
-        Va.x[i,j] = f_anal(@SVector([X.xv[i]; X.yce[j]]), params; geometry=geometry).V[1]
+        Va.x[i,j] = f_anal(@SVector([X.xv[i]; X.yce[j]]); params).V[1]
     end
     for I in CartesianIndices(Va.y)
         i, j = I[1], I[2]
-        Va.y[i,j] = f_anal(@SVector([X.xce[i]; X.yv[j]]), params; geometry=geometry).V[2]
+        Va.y[i,j] = f_anal(@SVector([X.xce[i]; X.yv[j]]); params).V[2]
     end
     for I in CartesianIndices(Pa)
         i, j = I[1], I[2]
-        sol = f_anal(@SVector([X.xc[i]; X.yc[j]]), params; geometry=geometry)
+        sol = f_anal(@SVector([X.xc[i]; X.yc[j]]); params)
         Pa[i,j]    = sol.p
         σa.xx[i,j] = sol.τ[1,1] - sol.p
         σa.yy[i,j] = sol.τ[2,2] - sol.p
@@ -30,7 +30,7 @@ function analytics_stag(f_anal, X, params, geometry)
     end
     for I in CartesianIndices(σa.xy)
         i, j = I[1], I[2]
-        σa.xy[i,j] = f_anal(@SVector([X.xv[i]; X.yv[j]]), params; geometry=geometry).τ[1,2]
+        σa.xy[i,j] = f_anal(@SVector([X.xv[i]; X.yv[j]]); params).τ[1,2]
     end
 
     return Va, Pa, σa 
