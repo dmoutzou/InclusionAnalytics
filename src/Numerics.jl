@@ -9,9 +9,9 @@ const gw3 = ( 5/9,       8/9, 5/9      )   # Gauss–Legendre weights (sum = 2)
 # Analytical field at a NORMALISED point Xn ∈ the unit box.
 function f_anal(Xn; params, geometry, S=1.0)
     if geometry == :circular
-        return Analytics_circle(Xn; params=params)
+        return analytics_circle(Xn; params=params)
     elseif geometry == :elliptical
-        sol = Analytics_ellipse(to_zeta(S .* Xn); params=params)
+        sol = analytics_ellipse(to_zeta(S .* Xn); params=params)
         return (V=sol.V./S, p=sol.p, τ=sol.τ, τzz=sol.τzz)
     else
         error("Unknown geometry: $geometry")

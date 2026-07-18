@@ -19,23 +19,23 @@ function ellipse_axes(t)
     return a, b
 end
 
-function Analytics_ellipse(X; params)
+function analytics_ellipse(X; params)
     ηm, ηi, ξm, ξi, t, γ̇, ε̇, ζ̇ , α = params
     ri      = t_to_ri(t)
     τ, σ    = X[1], X[2]
-    #Kolosov
+    # Kolosov
     νm      = (3.0ξm - 2.0ηm) / (2.0*(3.0ξm + ηm))
     νi      = (3.0ξi - 2.0ηi) / (2.0*(3.0ξi + ηi))
     κm      = 3 - 4νm
     κi      = 3 - 4νi
-    #Boundary terms with angle of rotation
+    # Boundary terms with angle of rotation
     P_m     = -im*ηm*γ̇/(κm+1.0) + 2.0*ηm*ζ̇/(κm-1)
     Q_m     = (im*γ̇ - 2.0ε̇)*ηm*exp(-2.0*im*α)
     P_mR    = real(P_m); P_mI = imag(P_m)
     Q_mR    = real(Q_m); Q_mI = imag(Q_m)
-    #radius factor
+    # radius factor
     r4      = ri^4
-    #Solution coefficients
+    # Solution coefficients
     K       = -2.0*ηi*κm*P_mR + 2.0*ηi*P_mR + 2.0*ηi*Q_mR*ri^2 + 2.0*ηm*κi*P_mR +
                 ηm*κi*Q_mR*ri^2 - 2.0*ηm*P_mR - ηm*Q_mR*ri^2
     L       = ηi*κm*P_mR*r4 - ηi*P_mR - ηi*Q_mR*ri^2 + ηm*P_mR*r4 + ηm*P_mR + ηm*Q_mR*ri^2
@@ -62,7 +62,7 @@ function Analytics_ellipse(X; params)
     B2      = B2_R + im*B2_I
     λ       = τ + im*σ
     r       = abs(λ)
-    #potentials for matrix and inclusion
+    # potentials for matrix and inclusion
     if r > ri
         ϕ   =  P_m*(λ + 1.0/λ) + A1/λ
         ϕ′  =  P_m - P_m*λ^-2.0 - A1*λ^-2.0
@@ -78,7 +78,7 @@ function Analytics_ellipse(X; params)
         ψ′  =  B2 - B2*λ^-2.0
         η_loc, κ_loc, ν_loc = ηi, κi, νi
     end
-    #field formulas
+    # field formulas
     ω′      = 1.0 - λ^-2.0
     ω′′     = 2.0*λ^-3.0
     zbar    = conj(λ) + 1.0/conj(λ)          # = conj(z), general point

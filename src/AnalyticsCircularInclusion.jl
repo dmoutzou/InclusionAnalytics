@@ -1,5 +1,5 @@
 # New analytical solution (Moutzouris_2026)
-function Analytics_circle(X; params)
+function analytics_circle(X; params)
     ηm, ηi, ξm, ξi, γ̇, ε̇, ζ̇, ri = params
     x, y = X[1], X[2]
     νm = (3ξm - 2ηm) / (2*(3ξm + ηm))
