@@ -4,7 +4,7 @@ using CairoMakie, MathTeXEngine, StaticArrays, Statistics
 # Convergence study: mean error vs resolution for all four tests, for either
 # a circular or an elliptical inclusion. 
 let
-    geometry = :circular     # :circular | :elliptical
+    geometry = :elliptical     # :circular | :elliptical
     a_target = 0.4           # only used when geometry == :elliptical, you can change he size of the inclusion
 
     tests   = [:Schmid2003, :Duretz2026_1, :Duretz2026_2, :Duretz2026_3]

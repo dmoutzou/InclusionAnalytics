@@ -57,7 +57,7 @@ function Gershgorin_Stokes2D_SchurComplement(ηc, ηv, γ, Δx, Δy, ncx, ncy)
 end
 
 # Stokes solver
-@views function Stokes2D(n, test; geometry=:circular, a_target=0.2,
+@views function Stokes2D(n, test, params; geometry=:circular, a_target=0.2,
                           γfact  = geometry == :circular ? 60    : 5,
                           dτ_local = geometry == :circular ? true  : false,
                           nPH    = geometry == :circular ? 50    : 100)
@@ -69,21 +69,26 @@ end
     one_iter = false
 
     params = preset(test, geometry)
-    ε̇, ζ̇   = params.ε̇, params.ζ̇
+    # ε̇, ζ̇   = params.ε̇, params.ζ̇
 
-    # Normalisation if we use the elliptical case
-    if geometry == :circular
-        S  = 1.0
-        an = params.ri
-        bn = params.ri
-    elseif geometry == :elliptical
-        a, b = ellipse_axes(params.t)
-        S    = a / a_target
-        an   = a_target
-        bn   = b / S
-    else
-        error("Unknown geometry: $geometry")
-    end
+        # (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, r1=r1, r2=r2, t=t, α=α, sc=sc, ε̇=ε̇, γ̇=γ̇, ζ̇=ζ̇)
+
+    ηm, ηi, ξm, ξi, r1, r2, t, α, sc, ε̇, γ̇, ζ̇ = params
+
+
+    # # Normalisation if we use the elliptical case
+    # if geometry == :circular
+    #     S  = 1.0
+    #     an = params.ri
+    #     bn = params.ri
+    # elseif geometry == :elliptical
+    #     a, b = ellipse_axes(params.t)
+    #     S    = a / a_target
+    #     an   = a_target
+    #     bn   = b / S
+    # else
+    #     error("Unknown geometry: $geometry")
+    # end
 
     # For BCs use the selected analytical solution with physical compressibility
     bc_params = comp ? params : merge(params, (ξm = 1e100*params.ξm, ξi = 1e100*params.ξi))
@@ -135,12 +140,12 @@ end
     xv, yv   = LinRange(-Lx/2, Lx/2, ncx+1),             LinRange(-Ly/2, Ly/2, ncy+1)
 
     # Elliptical mask reduces to the circular one when an == bn == ri
-    ηv_sharp[(xv./an).^2 .+ (yv'./bn).^2 .< 1.0] .= params.ηi
-    ηc_sharp[(xc./an).^2 .+ (yc'./bn).^2 .< 1.0] .= params.ηi
+    ηv_sharp[(xv./r1).^2 .+ (yv'./r2).^2 .< 1.0] .= params.ηi
+    ηc_sharp[(xc./r1).^2 .+ (yc'./r2).^2 .< 1.0] .= params.ηi
     ηc .= av4_harm(ηv_sharp)
     ηv[2:end-1,2:end-1] .= av4_harm(ηc_sharp)
     ηb .= params.ξm
-    ηb[(xc./an).^2 .+ (yc'./bn).^2 .< 1.0] .= params.ξi
+    ηb[(xc./r1).^2 .+ (yc'./r2).^2 .< 1.0] .= params.ξi
     γi    = γfact * mean(ηc) .* ones(size(ηc))
     γ_eff = zeros(size(ηb))
     if comp
@@ -172,13 +177,13 @@ end
     # Boundary values from analytical solution
     VxS, VxN = zeros(ncx+1), zeros(ncx+1)
     for i in eachindex(VxS)
-        VxS[i] = f_anal(@SVector([xv[i]; -Ly/2]); params=bc_params, geometry=geometry, S=S).V[1]
-        VxN[i] = f_anal(@SVector([xv[i];  Ly/2]); params=bc_params, geometry=geometry, S=S).V[1]
+        VxS[i] = f_anal(@SVector([xv[i]; -Ly/2]); params=bc_params, geometry=geometry).V[1]
+        VxN[i] = f_anal(@SVector([xv[i];  Ly/2]); params=bc_params, geometry=geometry).V[1]
     end
     VyW, VyE = zeros(ncy+1), zeros(ncy+1)
     for j in eachindex(VyW)
-        VyW[j] = f_anal(@SVector([-Lx/2; yv[j]]); params=bc_params, geometry=geometry, S=S).V[2]
-        VyE[j] = f_anal(@SVector([ Lx/2; yv[j]]); params=bc_params, geometry=geometry, S=S).V[2]
+        VyW[j] = f_anal(@SVector([-Lx/2; yv[j]]); params=bc_params, geometry=geometry).V[2]
+        VyE[j] = f_anal(@SVector([ Lx/2; yv[j]]); params=bc_params, geometry=geometry).V[2]
     end
 
     # Initial condition
@@ -189,13 +194,13 @@ end
     # Apply Gauss–Legendre Quadrature
     for j in 2:ncy+1                    # west & east faces span yv[j-1]..yv[j]
         ym         = 0.5*(yv[j-1] + yv[j])
-        Vx[1,   j] = face_avg(-Lx/2, ym, Δy, 2, 1; params=params, geometry=geometry, S=S)
-        Vx[end, j] = face_avg( Lx/2, ym, Δy, 2, 1; params=params, geometry=geometry, S=S)
+        Vx[1,   j] = face_avg(-Lx/2, ym, Δy, 2, 1; params=params, geometry=geometry)
+        Vx[end, j] = face_avg( Lx/2, ym, Δy, 2, 1; params=params, geometry=geometry)
     end
     for i in 2:ncx+1                    # south & north faces span xv[i-1]..xv[i]
         xm         = 0.5*(xv[i-1] + xv[i])
-        Vy[i, 1  ] = face_avg(xm, -Ly/2, Δx, 1, 2; params=params, geometry=geometry, S=S)
-        Vy[i, end] = face_avg(xm,  Ly/2, Δx, 1, 2; params=params, geometry=geometry, S=S)
+        Vy[i, 1  ] = face_avg(xm, -Ly/2, Δx, 1, 2; params=params, geometry=geometry)
+        Vy[i, end] = face_avg(xm,  Ly/2, Δx, 1, 2; params=params, geometry=geometry)
     end
     # Verification: discrete boundary flux should be ~1e-12 or below
     Q = Δy*sum(Vx[end,2:end-1] .- Vx[1,2:end-1]) +
@@ -274,5 +279,5 @@ end
     X  = (xv=xv, yv=yv, xce=xce, yce=yce, xc=xc, yc=yc)
 
     @show iter/ncx
-    return V, Pt, S_out, X, bc_params, S
+    return V, Pt, S_out, X
 end

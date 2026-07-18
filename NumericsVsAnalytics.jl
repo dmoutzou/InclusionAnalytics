@@ -10,12 +10,14 @@ let
     nc       = 101           # resolution
     a_target = 0.4           # only used when geometry == :elliptical (normalised semi-major axis)
 
-    V, Pt, S, X, params, scale = Stokes2D(nc, test; geometry=geometry, a_target=a_target)
+    params = preset(test)
 
-    Va, Pa, τa = eval_analytics_stag(f_anal, X, params, geometry, scale)
+    V, Pt, S, X = Stokes2D(nc, test, params; geometry=geometry, a_target=a_target)
+
+    Va, Pa, τa = eval_analytics_stag(f_anal, X, params, geometry, params.sc)
 
     # Errors
-    dVx = abs.(V.x .- Va.x);  dVy = abs.(V.y .- Va.y);  dP = abs.(Pt .- Pa)
+    dVx  = abs.(V.x .- Va.x);    dVy = abs.(V.y .- Va.y);  dP = abs.(Pt .- Pa)
     dSxx = abs.(S.xx .- τa.xx);  dSyy = abs.(S.yy .- τa.yy)
     dSzz = abs.(S.zz .- τa.zz);  dSxy = abs.(S.xy .- τa.xy)
     @printf("mean|dVx| = %1.3e   mean|dVy| = %1.3e   mean|dP| = %1.3e\n", mean(dVx), mean(dVy), mean(dP))

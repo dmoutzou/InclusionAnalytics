@@ -1,49 +1,58 @@
-function preset(test, geometry)
-    if geometry == :elliptical
+function preset(test, geometry=:elliptical)
+    # if geometry == :elliptical
         if test == :Schmid2003
-            ηm, ηi = 1.0, 1000.0;  ξm, ξi = 1e10, 1e10
+            ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e10, 1e10
             ε̇ = -0.5;  γ̇ = 0.0;  ζ̇ = 0.0
-            t = 2.0;   α = 0.0
+            ri = 0.1;  t = 2.0;   α = 0.0; 
         elseif test == :Duretz2026_1
             ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e0, 1e0
             ε̇ = -1e0;  γ̇ = 0.0;  ζ̇ = 0.0
-            t = 2.0;   α = 0.0
+            ri = 0.1;  t = 2.0;   α = 0.0; 
         elseif test == :Duretz2026_2
             ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e0, 10e0
             ε̇ = 1e-10; γ̇ = 0.0;  ζ̇ = 1e0
-            t = 2.0;   α = 0.0
+            ri = 0.1;  t = 2.0;   α = 0.0; 
         elseif test == :Duretz2026_3
-            ηm, ηi = 1.0, 1000.0;  ξm, ξi = 1e10, 1e10
+            ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e10, 1e10
             ε̇ = 0.0;   γ̇ = 1.0;  ζ̇ = 0.0
-            t = 2.0;   α = 30/180*pi
+            ri = 0.1;  t = 2.0;   α = 30/180*pi; 
         else
             error("unknown test $test")
         end
-        return (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, t=t, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇, α=α)
+        # return (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, t=t, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇, α=α)
 
-    elseif geometry == :circular
-        if test == :Schmid2003
-            ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e10, 1e10
-            ε̇ = -1e0;  γ̇ = 0.0;  ζ̇ = 0.0
-            ri = 0.1
-        elseif test == :Duretz2026_1
-            ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e0, 1e0
-            ε̇ = -1e0;  γ̇ = 0.0;  ζ̇ = 0.0
-            ri = 0.1
-        elseif test == :Duretz2026_2
-            ηm, ηi = 1.0, 1e-1;  ξm, ξi = 1e0, 1e0
-            ε̇ = 1e-10; γ̇ = 1.0;  ζ̇ = 1e0
-            ri = 0.1
-        elseif test == :Duretz2026_3
-            ηm, ηi = 1.0, 1e-1;  ξm, ξi = 1.0, 1.0
-            ε̇ = 1e-10; γ̇ = 0.0;  ζ̇ = 1e0
-            ri = 0.1
-        else
-            error("Unknown test: $test")
-        end
-        return (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇, ri=ri)
+    # elseif geometry == :circular
+    #     if test == :Schmid2003
+    #         ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e10, 1e10
+    #         ε̇ = -1e0;  γ̇ = 0.0;  ζ̇ = 0.0
+    #         ri = 0.1
+    #     elseif test == :Duretz2026_1
+    #         ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e0, 1e0
+    #         ε̇ = -1e0;  γ̇ = 0.0;  ζ̇ = 0.0
+    #         ri = 0.1
+    #     elseif test == :Duretz2026_2
+    #         ηm, ηi = 1.0, 1e-1;  ξm, ξi = 1e0, 1e0
+    #         ε̇ = 1e-10; γ̇ = 1.0;  ζ̇ = 1e0
+    #         ri = 0.1
+    #     elseif test == :Duretz2026_3
+    #         ηm, ηi = 1.0, 1e-1;  ξm, ξi = 1.0, 1.0
+    #         ε̇ = 1e-10; γ̇ = 0.0;  ζ̇ = 1e0
+    #         ri = 0.1
+    #     else
+    #         error("Unknown test: $test")
+    #     end
+        # return (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, γ̇=γ̇, ε̇=ε̇, ζ̇=ζ̇, ri=ri)
 
+    # else
+    #     error("Unknown geometry: $geometry")
+    # end
+
+    if geometry == :elliptical
+        r1, r2     = ellipse_axes(t) # true physical semi-axes (a >= 2 always)
+        sc         = r1 / ri 
     else
-        error("Unknown geometry: $geometry")
+        r1, r2, sc = ri, ri, 1.0
     end
+
+    return (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, r1=r1, r2=r2, t=t, α=α, sc=sc, ε̇=ε̇, γ̇=γ̇, ζ̇=ζ̇)
 end

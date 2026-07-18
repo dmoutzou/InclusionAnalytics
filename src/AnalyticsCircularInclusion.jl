@@ -1,6 +1,6 @@
 # New analytical solution (Moutzouris_2026)
 function analytics_circle(X; params)
-    ηm, ηi, ξm, ξi, γ̇, ε̇, ζ̇, ri = params
+    ηm, ηi, ξm, ξi, ri, r2, t, α, sc, ε̇, γ̇, ζ̇ = params
     x, y = X[1], X[2]
     νm = (3ξm - 2ηm) / (2*(3ξm + ηm))
     νi = (3ξi - 2ηi) / (2*(3ξi + ηi))

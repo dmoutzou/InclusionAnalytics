@@ -20,7 +20,9 @@ function ellipse_axes(t)
 end
 
 function analytics_ellipse(X; params)
-    ηm, ηi, ξm, ξi, t, γ̇, ε̇, ζ̇ , α = params
+    # ηm, ηi, ξm, ξi, t, γ̇, ε̇, ζ̇ , α = params
+    ηm, ηi, ξm, ξi, ri, r2, t, α, sc, ε̇, γ̇, ζ̇ = params
+    # (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, r1=r1, r2=r2, t=t, α=α, sc=sc, ε̇=ε̇, γ̇=γ̇, ζ̇=ζ̇)
     ri      = t_to_ri(t)
     τ, σ    = X[1], X[2]
     # Kolosov
