@@ -3,9 +3,9 @@ using CairoMakie, MathTeXEngine, StaticArrays, Statistics, Printf
 
 # Compare numerics vs analytics for either a circular or an elliptical inclusion.
 let
-    geometry = :elliptical   # :circular | :elliptical
-    test     = :Schmid2003   # :Schmid2003 | :Duretz2026_1 | :Duretz2026_2 | :Duretz2026_3
-    nc       = 101           # resolution
+    geometry = :circular   # :circular | :elliptical
+    test     = :Duretz2026_5_mixed   # :Schmid2003 | :Duretz2026_1_ps | :Duretz2026_2_ss | :Duretz2026_3_exp | :Duretz2026_4_comp | :Duretz2026_5_mixed | :Duretz2026_6_angled
+    nc       = 301           # resolution
     params   = preset(test, geometry)
     f_anal   = geometry==:circular ? analytics_circle : analytics_ellipse
     

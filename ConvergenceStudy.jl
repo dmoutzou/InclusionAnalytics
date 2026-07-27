@@ -5,7 +5,7 @@ using CairoMakie, MathTeXEngine, StaticArrays, Statistics
 # a circular or an elliptical inclusion. 
 let
     geometry = :elliptical     # :circular | :elliptical
-    tests    = [:Schmid2003, :Duretz2026_1, :Duretz2026_2, :Duretz2026_3]
+    tests    = [:Schmid2003, :Duretz2026_1_ps, :Duretz2026_2_ss, :Duretz2026_3_exp]
     titles   = ["Test 1", "Test 2", "Test 3", "Test 4"]
     nc_list  = [51, 101, 201, 401]
     f_anal   = geometry==:circular ? analytics_circle : analytics_ellipse

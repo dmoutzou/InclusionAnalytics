@@ -4,18 +4,30 @@ function preset(test, geometry)
             ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e10, 1e10
             ε̇ = -0.5;  γ̇ = 0.0;  ζ̇ = 0.0
             ri = 0.1;  t = 2.0;   α = 0.0; 
-        elseif test == :Duretz2026_1
-            ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e0, 1e0
+        elseif test == :Duretz2026_1_ps
+            ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e0, 10e0
             ε̇ = -1e0;  γ̇ = 0.0;  ζ̇ = 0.0
             ri = 0.1;  t = 2.0;   α = 0.0; 
-        elseif test == :Duretz2026_2
+        elseif test == :Duretz2026_2_ss
             ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e0, 10e0
-            ε̇ = 1e-10; γ̇ = 0.0;  ζ̇ = 1e0
+            ε̇ = 0.0; γ̇ = -1.0;  ζ̇ = 0.0
             ri = 0.1;  t = 2.0;   α = 0.0; 
-        elseif test == :Duretz2026_3
-            ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e10, 1e10
+        elseif test == :Duretz2026_3_exp
+            ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e0, 10e0
+            ε̇ = 0.0;   γ̇ = 0.0;  ζ̇ = 1.0
+            ri = 0.1;  t = 2.0;   α = 0.0; 
+        elseif test == :Duretz2026_4_comp
+            ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e0, 10e0
+            ε̇ = 0.0;   γ̇ = 0.0;  ζ̇ = -1.0
+            ri = 0.1;  t = 2.0;   α = 0.0;
+        elseif test == :Duretz2026_5_mixed
+            ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e0, 10e0
+            ε̇ = 1.0;   γ̇ = 1.0;  ζ̇ = 2.0
+            ri = 0.1;  t = 2.0;   α = 0.0;
+        elseif test == :Duretz2026_6_angled
+            ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e0, 10e0
             ε̇ = 0.0;   γ̇ = 1.0;  ζ̇ = 0.0
-            ri = 0.1;  t = 2.0;   α = 30/180*pi; 
+            ri = 0.1;  t = 2.0;   α = 30/180*pi;  
         else
             error("unknown test $test")
         end
