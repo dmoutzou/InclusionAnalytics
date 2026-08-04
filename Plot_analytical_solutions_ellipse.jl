@@ -32,8 +32,8 @@ function param_lines(params)
 end
 
 let
-    geometry = :circular
-    f_anal   = analytics_circle
+    geometry = :elliptical
+    f_anal   = analytics_ellipse
     nc       = 501
 
     Lx, Ly = 1.0, 1.0
@@ -96,7 +96,8 @@ let
     #display(fig)
 
     mkpath("figures")
-    fname = "./figures/Circular examples.png"
+    fname = "./figures/Elliptical_examples.png"
     save(fname, fig, px_per_unit = 2)
     println("Saved: $fname")
+    fig
 end

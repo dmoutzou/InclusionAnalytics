@@ -1,13 +1,14 @@
 using InclusionAnalytics
 using CairoMakie, MathTeXEngine, StaticArrays, Statistics, Printf
 
-# Compare numerics vs analytics for either a circular or an elliptical inclusion.
+# Compare numerics vs analytics for the circular inclusion with an
+# out-of-plane strain rate ε̇zz activated (only analytics_circle supports it).
 let
-    geometry = :elliptical   # :circular | :elliptical
-    test     = :Duretz2026_5_mixed   # :Schmid2003 | :Duretz2026_1_ps | :Duretz2026_2_ss | :Duretz2026_3_exp | :Duretz2026_4_comp | :Duretz2026_5_mixed | :Duretz2026_6_angled | :Duretz2026_7_oop
-    nc       = 201           # resolution
+    geometry = :circular
+    test     = :Duretz2026_7_oop
+    nc       = 301           
     params   = preset(test, geometry)
-    f_anal   = geometry==:circular ? analytics_circle : analytics_ellipse
+    f_anal   = analytics_circle
 
     # Numerics
     V, P, σ, X = Stokes2D(nc, test, params, f_anal)
@@ -25,29 +26,47 @@ let
     xc, yc   = scale .* X.xc,  scale .* X.yc
     xce, yce = scale .* X.xce, scale .* X.yce
 
-    # Visualisation (velocities + pressure only)
+    # Visualisation (velocities + pressure + out-of-plane stress)
     #   last entry: share a common colour range between analytical & numerical
     field_data = [
-        (L"V_x", xv,  yce, Va.x, V.x, Ve.x, false),
-        (L"V_y", xce, yv,  Va.y, V.y, Ve.y, false),
-        (L"P",   xc,  yc,  Pa,   P,   Pe  , true ),
+        (L"V_x",         xv,  yce, Va.x,   V.x,   Ve.x,   false),
+        (L"V_y",         xce, yv,  Va.y,   V.y,   Ve.y,   false),
+        (L"P",           xc,  yc,  Pa,     P,     Pe,     true ),
+        (L"\sigma_{zz}", xc,  yc,  σa.zz,  σ.zz,  σe.zz,  true ),
     ]
 
     fs     = 26   # base font size
     fs_lbl = 34   # column titles / axis labels
 
     set_theme!(theme_latexfonts())
-    fig = Figure(size=(1300, 1150), fontsize=fs)
+    fig = Figure(size=(1300, 1500), fontsize=fs)
     Label(fig[0, 1:2], L"\mathrm{Analytical\ solution}", tellwidth=false, fontsize=fs_lbl)
     Label(fig[0, 3:4], L"\mathrm{Numerical\ solution}",  tellwidth=false, fontsize=fs_lbl)
     Label(fig[0, 5:6], L"\mathrm{Difference}",           tellwidth=false, fontsize=fs_lbl)
 
     for (row, (name, gx, gy, an, num, diff, share)) in enumerate(field_data)
-        an_c  = an  
-        num_c = num 
+        an_c  = an
+        num_c = num
 
-        # common colour range for the analytical/numerical columns
-        crange = share ? (colorrange = extrema(vcat(vec(an_c), vec(num_c))),) : NamedTuple()
+        # common colour range for the analytical/numerical columns, widened to at
+        # least 2% of the field's own magnitude so a (near-)uniform field doesn't
+        # collapse into Float32-precision-limited patches
+        mag = max(maximum(abs, an_c), maximum(abs, num_c), 1.0)
+        crange = if share
+            lo, hi  = extrema(vcat(vec(an_c), vec(num_c)))
+            minspan = 0.02*mag
+            if hi - lo < minspan
+                c      = 0.5*(lo + hi)
+                lo, hi = c - 0.5*minspan, c + 0.5*minspan
+            end
+            (colorrange = (lo, hi),)
+        else
+            NamedTuple()
+        end
+
+        # diff panel: zero-centred, widened the same way (relative to the field's
+        # own magnitude, not the-often-tiny-diff itself) so it stays readable
+        dmax = max(maximum(abs, diff), 0.01*mag)
 
         bottom = (row == length(field_data))
         ax1 = Axis(fig[row, 1], aspect=DataAspect(), ylabel=L"y", xlabel=L"x",
@@ -59,7 +78,7 @@ let
 
         hm1 = heatmap!(ax1, gx, gy, an_c;  colormap=(Reverse(:matter), 1), crange...)
         hm2 = heatmap!(ax2, gx, gy, num_c; colormap=(Reverse(:matter), 1), crange...)
-        hm3 = heatmap!(ax3, gx, gy, diff;  colormap=(Reverse(:matter), 1))
+        hm3 = heatmap!(ax3, gx, gy, diff;  colormap=(Reverse(:matter), 1), colorrange=(-dmax, dmax))
 
         Colorbar(fig[row, 2], hm1, label=name, labelsize=fs_lbl, ticklabelsize=20, width=14)
         Colorbar(fig[row, 4], hm2, label=name, labelsize=fs_lbl, ticklabelsize=20, width=14)

@@ -9,25 +9,32 @@
 #     end
 # end
 
-# New analytical solution (Moutzouris_2026)
+# New analytical solution (including OOP)
 function analytics_circle(X; params)
-    ηm, ηi, ξm, ξi, ri, r2, t, α, sc, ε̇, γ̇, ζ̇ = params
+    ηm, ηi, ξm, ξi, ri, r2, t, α, sc, ε̇, γ̇, ζ̇, ε̇zz = params
     x, y = X[1], X[2]
     νm = (3ξm - 2ηm) / (2*(3ξm + ηm))
     νi = (3ξi - 2ηi) / (2*(3ξi + ηi))
     κm = 3 - 4νm
     κi = 3 - 4νi
-    P_m  = -im*ηm*γ̇/(κm+1) + 2*ηm*ζ̇/(κm-1)
+    Em = 2ηm*(1 + νm)
+    Ei = 2ηi*(1 + νi)
+
+    P_mR = 2*ηm*(ζ̇ + νm*ε̇zz) / (κm - 1)
+    P_mI = -ηm*γ̇ / (κm + 1)
+    P_m  = P_mR + im*P_mI
     Q_m  = (im*γ̇ - 2ε̇)*ηm
-    P_mR = real(P_m)
-    P_mI = imag(P_m)
-    B1R = (κm+1)*ηi*P_mR / (2ηi + (κi-1)*ηm)
-    B1I = (κm+1)*ηi*P_mI / ((κi+1)*ηm)
+
+    D   = 2ηi + (κi - 1)*ηm
+    B1R = ((κm + 1)*ηi*P_mR + 2*ηi*ηm*(νi - νm)*ε̇zz) / D
+    B1I = (κm + 1)*ηi*P_mI / ((κi + 1)*ηm)
     B1  = B1R + im*B1I
+
     A1  = (ηi - ηm)*conj(Q_m)*ri^2 / (κm*ηi + ηm)
     A3  = ri^2 * A1
     B2  = conj(A1/ri^2 + conj(Q_m))
-    A2  = 2ri^2 * ((κm-1)*ηi - (κi-1)*ηm) / (2ηi + (κi-1)*ηm) * P_mR
+    A2  = 2*ri^2 * (B1R - P_mR)
+
     z   = x + im*y
     z̄   = conj(z)
     r   = abs(z)
@@ -37,26 +44,28 @@ function analytics_circle(X; params)
         ϕ′′ =           2A1/z^3
         ψ   =  Q_m*z  + A2/z   + A3/z^3
         ψ′  =  Q_m    - A2/z^2 - 3A3/z^4
-        η_loc, κ_loc, ν_loc = ηm, κm, νm
+        η_loc, κ_loc, ν_loc, E_loc = ηm, κm, νm, Em
     else
         ϕ   =  B1*z
         ϕ′  =  B1  + 0im
         ϕ′′ =  0.0 + 0im
         ψ   =  B2*z
         ψ′  =  B2  + 0im
-        η_loc, κ_loc, ν_loc = ηi, κi, νi
+        η_loc, κ_loc, ν_loc, E_loc = ηi, κi, νi, Ei
     end
     Qval = z̄*ϕ′′ + ψ′
     sxx  = 2real(ϕ′) - real(Qval)
     syy  = 2real(ϕ′) + real(Qval)
     sxy  = imag(Qval)
-    szz  = ν_loc*(sxx + syy)
+    szz  = ν_loc*(sxx + syy) + E_loc*ε̇zz
     p    = -(sxx + syy + szz) / 3
-    vel  = (κ_loc*ϕ - z*conj(ϕ′) - conj(ψ)) / (2*η_loc)
+    vel  = (κ_loc*ϕ - z*conj(ϕ′) - conj(ψ)) / (2*η_loc) - ν_loc*ε̇zz*z
     return (V   = @SVector([real(vel), imag(vel)]),
             p   = p,
             τ   = @SMatrix([sxx+p  sxy; sxy  syy+p]),
-            τzz = szz + p)
+            τzz = szz + p,
+            σ   = @SMatrix([sxx  sxy; sxy  syy]),
+            σzz = szz)
 end
 
 # physical position from the conformal coordinate
@@ -80,10 +89,12 @@ function ellipse_axes(t)
     return a, b
 end
 
+#New analytical solution for ellipse
 function analytics_ellipse(X; params)
     # ηm, ηi, ξm, ξi, t, γ̇, ε̇, ζ̇ , α = params
-    ηm, ηi, ξm, ξi, ri, r2, t, α, sc, ε̇, γ̇, ζ̇ = params
-    # (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, r1=r1, r2=r2, t=t, α=α, sc=sc, ε̇=ε̇, γ̇=γ̇, ζ̇=ζ̇)
+    ηm, ηi, ξm, ξi, ri, r2, t, α, sc, ε̇, γ̇, ζ̇, ε̇zz = params
+    # (ηm=ηm, ηi=ηi, ξm=ξm, ξi=ξi, r1=r1, r2=r2, t=t, α=α, sc=sc, ε̇=ε̇, γ̇=γ̇, ζ̇=ζ̇, ε̇zz=ε̇zz)
+    ε̇zz == 0.0 || error("analytics_ellipse: out-of-plane ε̇zz is not yet implemented for the elliptical inclusion (only analytics_circle supports it)")
     ri      = t_to_ri(t)
     Ζ       = to_zeta(sc.*X)
     τ, σ    = Ζ[1], Ζ[2]
@@ -160,4 +171,54 @@ function analytics_ellipse(X; params)
             p   = p,
             τ   = @SMatrix([sxx+p  sxy; sxy  syy+p]),
             τzz = szz + p)
+end
+
+#Analytical solution for ellipse from Schmid2003
+function Analytics_Schmid2003(X; ηm, mc, γ̇, ε̇, α, t)
+    ri = t_to_ri(t)
+    τ, σ = X[1], X[2]
+    λ = τ + im*σ
+    r = abs(λ)
+    BC = (2.0*ε̇ - im*γ̇)*exp(-2.0*im*α)
+    ReB, ImB = real(BC), imag(BC)
+    B1 = ri^4*mc + ri^4 - 1.0 + mc
+    B2 = ri^4*mc + ri^4 - mc + 1.0
+    B3 = ri^4*mc - mc - ri^4 + 1.0
+    B4 = -ri^4*mc - mc - ri^4 + 1.0
+    B5 = ri^8*mc - mc - ri^8 + 1.0
+    C1 = B3*ri^2*(im*ImB/B1 - ReB/B2)
+    C2 = B5*(im*ImB/B1 - ReB/B2)
+    Bc1 = im*mc*B4*γ̇/(2.0*B1) - ri^2*(mc-1.0)*(im*mc*ImB/B1 - ReB/B2)
+    Bc2 = -2.0*mc*ri^4*(im*ImB/B1 + ReB/B2)
+    if r > ri
+        ϕ   = -im/2*γ̇*(λ + 1.0/λ) + C1/λ
+        ϕ′  = -im/2*γ̇*(1.0 - λ^-2.0) - C1*λ^-2.0
+        ϕ′′ = -im/2*γ̇*(2.0*λ^-3.0) + 2.0*C1*λ^-3.0
+        ψ   = -(ReB + im*ImB)*(λ + 1.0/λ) + C2*(1.0/(λ^3.0 - λ))
+        ψ′  = -(ReB + im*ImB)*(1.0 - λ^-2.0) - C2*(3.0*λ^2 - 1.0)/((λ^3.0 - λ)^2.0)
+        η_loc = ηm
+    else
+        ϕ   = Bc1*(λ + 1.0/λ)
+        ϕ′  = Bc1*(1.0 - λ^-2.0)
+        ϕ′′ = Bc1*(2.0*λ^-3.0)
+        ψ   = Bc2*(λ + 1.0/λ)
+        ψ′  = Bc2*(1.0 - λ^-2.0)
+        η_loc = ηm*mc
+    end
+    ω′  = 1.0 - λ^-2.0
+    ω′′ = 2.0*λ^-3.0
+    zbar = conj(λ) + 1.0/conj(λ)
+    Φp   = (ω′*ϕ′′ - ω′′*ϕ′) / ω′^3
+    S = 4.0*real(ϕ′/ω′)
+    D = 2.0*( zbar*Φp + ψ′/ω′ )
+    sxx = (S - real(D))/2
+    syy = (S + real(D))/2
+    sxy = imag(D)/2
+    p   = -2.0*real(1.0/(1.0 - λ^-2.0)*ϕ′) * ηm
+    conj_ωpr = 1.0 - 1.0/conj(λ)^2
+    vel = (ϕ - (λ + 1.0/λ)/conj_ωpr*conj(ϕ′) - conj(ψ)) / (2.0*η_loc) * ηm
+    return (V   = @SVector([real(vel), imag(vel)]),
+            p   = p,
+            τ   = @SMatrix([sxx*ηm+p  sxy*ηm; sxy*ηm  syy*ηm+p]),
+            τmax = sqrt(((sxx-syy)/2)^2 + sxy^2) * ηm)
 end

@@ -52,7 +52,7 @@ end
     Lx, Ly   = 1.0, 1.0
     comp     = true
     one_iter = false
-    ηm, ηi, ξm, ξi, r1, r2, t, α, sc, ε̇, γ̇, ζ̇ = params
+    ηm, ηi, ξm, ξi, r1, r2, t, α, sc, ε̇, γ̇, ζ̇, ε̇zz = params
 
     # For BCs use the selected analytical solution with physical compressibility
     params = comp ? params : merge(params, (ξm = 1e100*params.ξm, ξi = 1e100*params.ξi))
@@ -181,7 +181,7 @@ end
     @time for itPH = 1:nPH
         Vx[:,1] .= 2*VxS .- Vx[:,2];  Vx[:,end] .= 2*VxN .- Vx[:,end-1]
         Vy[1,:] .= 2*VyW .- Vy[2,:];  Vy[end,:] .= 2*VyE .- Vy[end-1,:]
-        ∇V  .= (Vx[2:end,2:end-1] .- Vx[1:end-1,2:end-1])./Δx .+ (Vy[2:end-1,2:end] .- Vy[2:end-1,1:end-1])./Δy
+        ∇V  .= (Vx[2:end,2:end-1] .- Vx[1:end-1,2:end-1])./Δx .+ (Vy[2:end-1,2:end] .- Vy[2:end-1,1:end-1])./Δy .+ ε̇zz
         Exx .= (Vx[2:end,2:end-1] .- Vx[1:end-1,2:end-1])./Δx .- 1/3 .* ∇V
         Eyy .= (Vy[2:end-1,2:end] .- Vy[2:end-1,1:end-1])./Δy .- 1/3 .* ∇V
         Exy .= 0.5 .* ((Vx[:,2:end] .- Vx[:,1:end-1])./Δy .+ (Vy[2:end,:] .- Vy[1:end-1,:])./Δx)
@@ -203,7 +203,7 @@ end
             Rx0  .= Rx;  Ry0 .= Ry
             Vx[:,1] .= 2*VxS .- Vx[:,2];  Vx[:,end] .= 2*VxN .- Vx[:,end-1]
             Vy[1,:] .= 2*VyW .- Vy[2,:];  Vy[end,:] .= 2*VyE .- Vy[end-1,:]
-            ∇V  .= (Vx[2:end,2:end-1] .- Vx[1:end-1,2:end-1])./Δx .+ (Vy[2:end-1,2:end] .- Vy[2:end-1,1:end-1])./Δy
+            ∇V  .= (Vx[2:end,2:end-1] .- Vx[1:end-1,2:end-1])./Δx .+ (Vy[2:end-1,2:end] .- Vy[2:end-1,1:end-1])./Δy .+ ε̇zz
             Exx .= (Vx[2:end,2:end-1] .- Vx[1:end-1,2:end-1])./Δx .- 1/3 .* ∇V
             Eyy .= (Vy[2:end-1,2:end] .- Vy[2:end-1,1:end-1])./Δy .- 1/3 .* ∇V
             Exy .= 0.5 .* ((Vx[:,2:end] .- Vx[:,1:end-1])./Δy .+ (Vy[2:end,:] .- Vy[1:end-1,:])./Δx)
