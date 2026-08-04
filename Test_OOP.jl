@@ -263,7 +263,7 @@ end
 let 
     n = 51
 
-    params = (ηm=1e0, ηi=1e0, ξm=1e1, ξi=1e1, r1=0.1, r2=0.1, t=1.0001, α=0.0, sc=1.0, ε̇=-0.0, γ̇=0.0, ζ̇=-1.0)
+    params = (ηm=1e0, ηi=1e2, ξm=1e1, ξi=1e1, r1=0.1, r2=0.1, t=1.0001, α=0.0, sc=1.0, ε̇=-0.0, γ̇=0.0, ζ̇=-1.0)
 
     V, P, σ, X =  Stokes2D_OOP( n, params, f_anal; γfact = 60 )
 
@@ -272,8 +272,10 @@ let
     heatmap!(ax, X.xc, X.yc, P)
     ax  = Axis(fig[1,2], aspect=DataAspect(), title=L"$\tau_\text{II}$")
     τII = sqrt.( 0.5*( (σ.xx .+ P).^2 .+ (σ.yy .+ P).^2 .+ (-σ.xx .- P - σ.yy .- P).^2) .+ (0.25*(σ.xy[1:end-1,1:end-1] .+ σ.xy[1:end-1,2:end-0] .+ σ.xy[2:end-0,1:end-1] .+ σ.xy[2:end-0,2:end-0])).^2 )
-    @show extrema(τII)
     heatmap!(ax, X.xc, X.yc, τII)
     display(fig)
+
+    @show extrema(P)
+    @show extrema(τII)
     
 end
