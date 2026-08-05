@@ -187,10 +187,17 @@ end
     @time for itPH = 1:nPH
         Vx[:,1] .= 2*VxS .- Vx[:,2];  Vx[:,end] .= 2*VxN .- Vx[:,end-1]
         Vy[1,:] .= 2*VyW .- Vy[2,:];  Vy[end,:] .= 2*VyE .- Vy[end-1,:]
-        ∇V  .= oop*((Vx[2:end,2:end-1] .- Vx[1:end-1,2:end-1])./Δx .+ (Vy[2:end-1,2:end] .- Vy[2:end-1,1:end-1])./Δy)
+        # ∇V  .= oop*((Vx[2:end,2:end-1] .- Vx[1:end-1,2:end-1])./Δx .+ (Vy[2:end-1,2:end] .- Vy[2:end-1,1:end-1])./Δy)
+        # Exx .= (Vx[2:end,2:end-1] .- Vx[1:end-1,2:end-1])./Δx .- 1/3 .* ∇V
+        # Eyy .= (Vy[2:end-1,2:end] .- Vy[2:end-1,1:end-1])./Δy .- 1/3 .* ∇V
+        # Ezz .= 1/3*∇V
+
+        Ezz .= -1.0
+        ∇V  .= ((Vx[2:end,2:end-1] .- Vx[1:end-1,2:end-1])./Δx .+ (Vy[2:end-1,2:end] .- Vy[2:end-1,1:end-1])./Δy + Ezz)
         Exx .= (Vx[2:end,2:end-1] .- Vx[1:end-1,2:end-1])./Δx .- 1/3 .* ∇V
         Eyy .= (Vy[2:end-1,2:end] .- Vy[2:end-1,1:end-1])./Δy .- 1/3 .* ∇V
-        Ezz .= 1/3*∇V
+
+
         Exy .= 0.5 .* ((Vx[:,2:end] .- Vx[:,1:end-1])./Δy .+ (Vy[2:end,:] .- Vy[1:end-1,:])./Δx)
         Txx .= 2 .* ηc .* Exx
         Tyy .= 2 .* ηc .* Eyy
@@ -210,10 +217,16 @@ end
             Rx0  .= Rx;  Ry0 .= Ry
             Vx[:,1] .= 2*VxS .- Vx[:,2];  Vx[:,end] .= 2*VxN .- Vx[:,end-1]
             Vy[1,:] .= 2*VyW .- Vy[2,:];  Vy[end,:] .= 2*VyE .- Vy[end-1,:]
-            ∇V  .= oop*((Vx[2:end,2:end-1] .- Vx[1:end-1,2:end-1])./Δx .+ (Vy[2:end-1,2:end] .- Vy[2:end-1,1:end-1])./Δy)
+            # ∇V  .= oop*((Vx[2:end,2:end-1] .- Vx[1:end-1,2:end-1])./Δx .+ (Vy[2:end-1,2:end] .- Vy[2:end-1,1:end-1])./Δy)
+            # Exx .= (Vx[2:end,2:end-1] .- Vx[1:end-1,2:end-1])./Δx .- 1/3 .* ∇V
+            # Eyy .= (Vy[2:end-1,2:end] .- Vy[2:end-1,1:end-1])./Δy .- 1/3 .* ∇V
+            # Ezz .= 1/3*∇V
+
+            Ezz .= -1.0
+            ∇V  .= ((Vx[2:end,2:end-1] .- Vx[1:end-1,2:end-1])./Δx .+ (Vy[2:end-1,2:end] .- Vy[2:end-1,1:end-1])./Δy + Ezz)
             Exx .= (Vx[2:end,2:end-1] .- Vx[1:end-1,2:end-1])./Δx .- 1/3 .* ∇V
             Eyy .= (Vy[2:end-1,2:end] .- Vy[2:end-1,1:end-1])./Δy .- 1/3 .* ∇V
-            Ezz .= 1/3*∇V
+
             Exy .= 0.5 .* ((Vx[:,2:end] .- Vx[:,1:end-1])./Δy .+ (Vy[2:end,:] .- Vy[1:end-1,:])./Δx)
             Rp  .= .-∇V .- comp*Pt./ηb
             Txx .= 2 .* ηc .* Exx .- γ_eff .* Rp
