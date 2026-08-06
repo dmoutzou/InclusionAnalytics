@@ -29,8 +29,12 @@ function preset(test, geometry)
             ε̇ = 0.0;   γ̇ = 1.0;  ζ̇ = 0.0;  ε̇zz = 0.0
             ri = 0.1;  t = 2.0;   α = 30/180*pi;
         elseif test == :Duretz2026_7_oop
-            ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e0, 1e0
+            ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e0, 10e0
             ε̇ = 0.0;   γ̇ = 0.0;  ζ̇ = 1.0;  ε̇zz = 1.0
+            ri = 0.1;  t = 2.0;   α = 0.0;
+        elseif test == :Duretz2026_8_zeroop
+            ηm, ηi = 1.0, 1e-2;  ξm, ξi = 1e0, 10e0
+            ε̇ = 0.0;   γ̇ = 0.0;  ζ̇ = 1.0;  ε̇zz = 0.0
             ri = 0.1;  t = 2.0;   α = 0.0;
         else
             error("unknown test $test")

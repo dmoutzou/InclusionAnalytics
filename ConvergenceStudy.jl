@@ -12,14 +12,26 @@ let
 
     panel = 500   # side length in px of each (square) axis
 
+    # --- Okabe-Ito colorblind-safe palette (8 colors, using 7 here) --------
+    okabe_ito = Dict(
+        :orange  => RGBf(230/255, 159/255, 0/255),
+        :skyblue => RGBf(86/255, 180/255, 233/255),
+        :green   => RGBf(0/255, 158/255, 115/255),
+        :yellow  => RGBf(240/255, 228/255, 66/255),
+        :blue    => RGBf(0/255, 114/255, 178/255),
+        :vermil  => RGBf(213/255, 94/255, 0/255),
+        :purple  => RGBf(204/255, 121/255, 167/255),
+    )
+
+    # each field: (symbol, LaTeX label, color, marker shape)
     fields = [
-        (:vx,  L"v_x",         :steelblue),
-        (:vy,  L"v_y",         :orange),
-        (:p,   L"p",           :seagreen),
-        (:σxx, L"\sigma_{xx}", :green),
-        (:σyy, L"\sigma_{yy}", :yellow),
-        (:σzz, L"\sigma_{zz}", :red),
-        (:σxy, L"\sigma_{xy}", :black),
+        (:vx,  L"v_x",         okabe_ito[:blue],    :circle),
+        (:vy,  L"v_y",         okabe_ito[:orange],  :utriangle),
+        (:p,   L"p",           okabe_ito[:green],   :rect),
+        (:σxx, L"\sigma_{xx}", okabe_ito[:skyblue], :diamond),
+        (:σyy, L"\sigma_{yy}", okabe_ito[:purple],  :dtriangle),
+        (:σzz, L"\sigma_{zz}", okabe_ito[:vermil],  :cross),
+        (:σxy, L"\sigma_{xy}", okabe_ito[:yellow],  :xcross),
     ]
 
     # --- LaTeX theme -------------------------------------------------------
@@ -65,7 +77,7 @@ let
                       ylabel = L"\varepsilon")
 
             invh = Float64[]
-            ε   = Dict(sym => Float64[] for (sym, _, _) in fields)
+            ε   = Dict(sym => Float64[] for (sym, _, _, _) in fields)
 
             for nc in nc_list
 
@@ -92,8 +104,10 @@ let
                 push!(ε[:σxy], mean(abs.(σe.xy)))
             end
 
-            for (sym, label, color) in fields
-                sc = scatter!(ax, invh, ε[sym]; color = color, markersize = 14)
+            for (sym, label, color, marker) in fields
+                sc = scatter!(ax, invh, ε[sym];
+                    color = color, marker = marker,
+                    markersize = 22, strokewidth = 1.4, strokecolor = :black)
                 if k == 1
                     push!(plots_for_legend, sc)
                     push!(labels_for_legend, label)
@@ -102,9 +116,9 @@ let
 
             # O(1) reference line
             xs = [minimum(invh), maximum(invh)]
-            y0 = maximum(ε[s][1] for (s, _, _) in fields)
+            y0 = maximum(ε[s][1] for (s, _, _, _) in fields)
             C  = xs[1]*y0*1.3
-            ln = lines!(ax, xs, C ./ xs; color = :royalblue, linewidth = 2.5)
+            ln = lines!(ax, xs, C ./ xs; color = :black, linestyle = :dash, linewidth = 2.5)
             if k == 1
                 push!(plots_for_legend, ln)
                 push!(labels_for_legend, L"\mathcal{O}(1)")
