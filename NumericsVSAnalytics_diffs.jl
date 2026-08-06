@@ -12,6 +12,7 @@ let
     cases = [
         (:Duretz2026_1_ps,    L"\mathrm{Pure\ shear}"),
         (:Duretz2026_2_ss,    L"\mathrm{Simple\ shear}"),
+        (:Duretz2026_3_exp, L"\mathrm{Expansion}"),
         (:Duretz2026_5_mixed, L"\mathrm{Mixed}"),
     ]
 
@@ -46,9 +47,9 @@ let
         L"t=%$(fmtnum(p.t))\;\;\alpha=%$(fmtnum(p.α))",
     ]
 
-    fs     = 26   # base font size
-    fs_lbl = 34   # column titles / axis labels
-    fs_ann = 18   # parameter annotation
+    fs     = 23   # base font size
+    fs_lbl = 32   # column titles / axis labels
+    fs_ann = 14   # parameter annotation
 
     set_theme!(theme_latexfonts())
     fig = Figure(size = (1500, 1200), fontsize = fs)
