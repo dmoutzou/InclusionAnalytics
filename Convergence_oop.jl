@@ -134,7 +134,7 @@ let
         clim = extrema((extrema(P0)..., extrema(P1)...))
 
         ax1 = Axis(fig[1,1],
-            title  = L"\varepsilon_{zz} = 0",
+            title  = L"\text{Plane-strain, } \varepsilon_{zz} = 0",
             xlabel = L"x",
             ylabel = L"y",
             aspect = DataAspect(),
@@ -143,7 +143,7 @@ let
         panel_label!(ax1, "A")
 
         ax2 = Axis(fig[1,2],
-            title  = "Full solution",
+            title  = L"\text{Plane-strain, } \varepsilon_{zz} = 1.0",
             xlabel = L"x",
             ylabel = L"y",
             aspect = DataAspect(),
