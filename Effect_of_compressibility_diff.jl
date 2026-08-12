@@ -46,62 +46,59 @@ let
     cmap = (Reverse(:matter), 1)
 
     ηm, ηi, ξm, ξi, ri, r2, t, α, sc, ε̇, γ̇, ζ̇, ε̇zz = base
-    ncols = 2 * length(ξvals)   # [axis | colorbar] per panel
 
     grow = 2
+
+    Pfields  = Vector{Any}(undef, length(ξvals))
+    maxdiffs = Vector{Float64}(undef, length(ξvals))
     for (col, ξ) in enumerate(ξvals)
-        base_col = 2col - 1              # [axis | colorbar]
+        params     = merge(base, (ξm = ξ, ξi = ξ))
+        _, Pa,  _  = analytics_stag(f_anal, X, params, geometry)
+        _, Psch, _ = analytics_stag(analytics_schmid_ellipse, X, params, geometry)
+        Pfields[col]  = Pa
+        maxdiffs[col] = maximum(abs.(Pa .- Psch))
+    end
 
-        params    = merge(base, (ξm = ξ, ξi = ξ))
-        _, Pa, _  = analytics_stag(f_anal, X, params, geometry)
-        _, Psch,_ = analytics_stag(analytics_schmid_ellipse, X, params, geometry)
-        maxdiff   = maximum(abs.(Pa .- Psch))
+    qclip  = 0.01                     
+    gain   = 1.5                       
+    allP   = vcat(vec.(Pfields)...)
+    lo, hi = quantile(allP, qclip), quantile(allP, 1 - qclip)
+    m      = gain * max(abs(lo), abs(hi))
+    crange = (-m, m)
 
-        # relative pad so a (near-)uniform field doesn't collapse the colorrange
-        lo, hi = extrema(Pa)
-        pad    = max(abs(hi), 1.0) * 0.05
-        crange = (hi - lo) < pad ? (lo - pad, hi + pad) : (lo, hi)
+    ncols = length(ξvals) + 1   # 4 axes + 1 shared colorbar
 
-        ax = Axis(fig[grow, base_col], aspect = DataAspect(),
+    local hm
+    for (col, ξ) in enumerate(ξvals)
+        ax = Axis(fig[grow, col], aspect = DataAspect(),
                   title = coltitle(ξ), titlesize = 30,
                   xlabel = L"x", ylabel = L"y", xlabelsize = 28, ylabelsize = 28,
                   xticklabelsize = 18, yticklabelsize = 18)
-        hm = heatmap!(ax, xc_p, yc_p, Pa; colorrange = crange, colormap = cmap)
-        # only the last (right-most) column carries the p label ("" avoids the
-        # empty-LaTeX-string render crash in Makie)
-        plabel = (col == length(ξvals)) ? L"p" : ""
-        Colorbar(fig[grow, base_col+1], hm, width = 12, label = plabel, labelsize = 34, ticklabelsize = 18)
+        hm = heatmap!(ax, xc_p, yc_p, Pfields[col]; colorrange = crange, colormap = cmap)
 
         text!(ax, 0.5, 0.02;
-              text = L"\max|\Delta p|_{\mathrm{incomp}}=%$(fmtnum(maxdiff))",
+              text = L"\max|\Delta p|_{\mathrm{incomp}}=%$(fmtnum(maxdiffs[col]))",
               space = :relative, align = (:center, :bottom),
               color = :black, fontsize = 22, font = :bold)
 
         col > 1 && hideydecorations!(ax, grid = false)
     end
 
-    # fixed-parameter caption + clarifying subtitle (ξ is swept, so not listed here);
-    # placed after the loop so fig[1,:]/[2,:] actually span every panel column
+    Colorbar(fig[grow, ncols], hm, width = 12, label = L"p",
+             labelsize = 34, ticklabelsize = 18)
     Label(fig[1, 1:ncols],
           L"\mu_h=%$(fmtnum(ηm))\;\;\mu_i=%$(fmtnum(ηi))\;\;\varepsilon=%$(fmtnum(ε̇))\;\;\gamma=%$(fmtnum(γ̇))\;\;\zeta=%$(fmtnum(ζ̇))\;\;\alpha=%$(fmtnum(α))\;\;t=%$(fmtnum(t))",
           fontsize = 25, color = :gray25, halign = :center)
 
-    # equalize the four heatmap columns so retained decorations (y-ticks/ylabel on
-    # col 1) can't make some panels larger than others.
-    for c in (1, 3, 5, 7)
-        colsize!(fig.layout, c, Relative(0.2))
+    for c in 1:length(ξvals)
+        colsize!(fig.layout, c, Relative(0.23))
     end
 
-    # columns: (ax|cbar) x4 -> keep each colorbar hugging its axis,
-    # and put the breathing room between panel groups instead
-    colgap!(fig.layout, 8)
-    for g in (1, 3, 5, 7);  colgap!(fig.layout, g, 4);  end    # axis <-> its colorbar (tight)
-    for g in (2, 4, 6);     colgap!(fig.layout, g, 22); end    # gap between panel groups
+    colgap!(fig.layout, 18)                    # between panels
+    colgap!(fig.layout, ncols - 1, 6)          # last panel <-> shared colorbar
 
     rowgap!(fig.layout, 8)
-    rowgap!(fig.layout, 1, 4)   # caption sits close to the panels
-
-    #display(fig)
+    rowgap!(fig.layout, 1, 4)
 
     mkpath("figures")
     fname = "./figures/Effect_of_compressibility.png"
