@@ -1,7 +1,7 @@
 name = "InclusionAnalytics"
 uuid = "7987e9b2-3c9e-43af-9904-1e5ea3ef1b7b"
-authors = ["tduretz <duretz@uni-frankfurt.de>"]
 version = "0.1.0"
+authors = ["tduretz <duretz@uni-frankfurt.de>"]
 
 [deps]
 BenchmarkTools = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
@@ -15,6 +15,7 @@ Polynomials = "f27b6e38-b328-58d1-80ce-0feddd5e7a45"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 StaticArrays = "90137ffa-7385-5640-81b9-e52037218182"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 
 [compat]
 BenchmarkTools = "1.8.0"
@@ -28,3 +29,4 @@ Polynomials = "4.1.1"
 Printf = "1.11.0"
 StaticArrays = "1.9.18"
 Statistics = "1.11.1"
+Symbolics = "7.36.0"
