@@ -1,6 +1,6 @@
-#Include packages and scripts
+# Include packages and scripts
 using ExactFieldSolutions
-include("src/InclusionAnalytics.jl")
+include("../src/InclusionAnalytics.jl")
 
 define_params(params) = (
     ηm=params.ηm, ηi=params.ηi, ξm=params.ξm, ξi=params.ξi,

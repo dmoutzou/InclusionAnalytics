@@ -1,5 +1,15 @@
-using InclusionAnalytics
-using CairoMakie, MathTeXEngine, StaticArrays, Statistics
+# Include packages and scripts
+using ExactFieldSolutions
+include("../src/InclusionAnalytics.jl")
+
+
+define_params(params) = (
+    ηm=params.ηm, ηi=params.ηi, ξm=params.ξm, ξi=params.ξi,
+    ri=params.r2, t=params.t, α=params.α,
+    ε̇=params.ε̇, γ̇=params.γ̇, ζ̇=params.ζ̇, ε̇zz=params.ε̇zz,
+)
+analytics_circle(X; params)  = Stokes2D_Moutzouris_circle(X;  params=define_params(params))
+analytics_ellipse(X; params) = Stokes2D_Moutzouris_ellipse(X; params=define_params(params))
 
 set_theme!(theme_latexfonts())
 
@@ -11,7 +21,7 @@ function make_grid(nc; Lx=1.0, Ly=1.0)
     return (xv=xv, yv=yv, xce=xce, yce=yce, xc=xc, yc=yc)
 end
 
-# co-located velocity samples on a coarse grid, for quiver overlays
+# quiver
 function quiver_arrays(f, params; nq=15, L=0.46)
     xs = LinRange(-L, L, nq); ys = LinRange(-L, L, nq)
     px = Float64[]; py = Float64[]; pu = Float64[]; pv = Float64[]
@@ -22,7 +32,6 @@ function quiver_arrays(f, params; nq=15, L=0.46)
     return px, py, pu, pv
 end
 
-# two compact lines summarising the parameter set
 function param_lines(params)
     ηm, ηi, ξm, ξi, ri, r2, t, α, sc, ε̇, γ̇, ζ̇, ε̇zz = params
     return (
@@ -32,29 +41,29 @@ function param_lines(params)
 end
 
 let
-    geometry = :elliptical
-    f_anal   = analytics_ellipse
+    geometry = :circular
+    f_anal   = analytics_circle
     nc       = 501
 
     Lx, Ly = 1.0, 1.0
     X      = make_grid(nc; Lx=Lx, Ly=Ly)
 
-    # cosmetic axis rescale to [-1, 1] (physics untouched)
+    # cosmetic axis rescale to [-1, 1] 
     scale = 2 / Lx
     xc_p, yc_p = scale .* X.xc, scale .* X.yc
 
     # four Duretz forcing cases
     cases = [
-        (:Duretz2026_1_ps,   L"\mathrm{Pure\ shear}"),
-        (:Duretz2026_2_ss,   L"\mathrm{Simple\ shear}"),
-        (:Duretz2026_3_exp,  L"\mathrm{Expansion}"),
-        (:Duretz2026_4_comp, L"\mathrm{Compaction}"),
+        (:Moutzouris2026_1_ps,   L"\mathrm{Pure\ shear}"),
+        (:Moutzouris2026_2_ss,   L"\mathrm{Simple\ shear}"),
+        (:Moutzouris2026_3_exp,  L"\mathrm{Expansion}"),
+        (:Moutzouris2026_4_comp, L"\mathrm{Compaction}"),
     ]
 
     fig  = Figure(size = (1300, 1250), fontsize = 18)
     cmap = (Reverse(:matter), 1)
 
-    # grid rows: (header, plot) per panel row -> rows 1,2 and 3,4
+    # grid rows
     for (idx, (test, title)) in enumerate(cases)
         r    = (idx - 1) ÷ 2 + 1        # 1,1,2,2
         c    = (idx - 1) %  2 + 1        # 1,2,1,2
@@ -66,7 +75,7 @@ let
         _, Pa, _ = analytics_stag(f_anal, X, params, geometry)
         pl       = param_lines(params)
 
-        # header: title + parameter lines (outside the plot area)
+        # header
         hg = GridLayout(fig[hrow, base+1])
         Label(hg[1, 1], title, fontsize = 30, tellwidth = false)
         Label(hg[2, 1], pl[1], fontsize = 18, color = :gray25, tellwidth = false)
@@ -83,7 +92,7 @@ let
         px, py, pu, pv = quiver_arrays(f_anal, params)
         vmax = maximum(hypot.(pu, pv))
         ls   = vmax == 0 ? 0.0 : 0.8 * (2*0.46*scale/14) / vmax
-        acol = test == :Duretz2026_4_comp ? :white : :black
+        acol = test == :Moutzouris2026_4_comp ? :white : :black
         arrows2d!(ax, scale .* px, scale .* py, pu, pv; lengthscale = ls,
                   tiplength = 7, tipwidth = 7, shaftwidth = 1.0, color = acol)
     end
@@ -96,8 +105,7 @@ let
     #display(fig)
 
     mkpath("figures")
-    fname = "./figures/Elliptical_examples.png"
+    fname = "./figures/Fig04_Analytics_circle.png"
     save(fname, fig, px_per_unit = 2)
     println("Saved: $fname")
-    fig
 end

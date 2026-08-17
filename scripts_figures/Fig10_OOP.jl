@@ -1,20 +1,28 @@
-using InclusionAnalytics
-using CairoMakie, MathTeXEngine, Statistics, Printf
+# Include packages and scripts
+using ExactFieldSolutions
+include("../src/InclusionAnalytics.jl")
+
+# Define parameters
+define_params(params) = (
+    ηm=params.ηm, ηi=params.ηi, ξm=params.ξm, ξi=params.ξi,
+    ri=params.r2, t=params.t, α=params.α,
+    ε̇=params.ε̇, γ̇=params.γ̇, ζ̇=params.ζ̇, ε̇zz=params.ε̇zz,
+)
+analytics_circle(X; params)  = Stokes2D_Moutzouris_circle(X;  params=define_params(params))
+analytics_ellipse(X; params) = Stokes2D_Moutzouris_ellipse(X; params=define_params(params))
 
 let
-
     geometries = [:circular, :elliptical]
     titles     = ["Circular inclusion", "Elliptical inclusion"]
 
-    test      = :Duretz2026_7_oop
-    test_ezz0 = :Duretz2026_8_zeroop
+    test      = :Moutzouris2026_7_oop
+    test_ezz0 = :Moutzouris2026_8_zeroop
     nc_list   = [101, 201, 401, 501]
 
-    # Which geometry to use for the two top-row pressure-field panels
+    # Geometry 
     oop_geometry = :elliptical
     nc_field     = 301
 
-    # --- Okabe-Ito colorblind-safe palette (for convergence markers) -------
     okabe_ito = Dict(
         :blue    => RGBf(0/255, 114/255, 178/255),
         :orange  => RGBf(230/255, 159/255, 0/255),
@@ -22,7 +30,6 @@ let
         :vermil  => RGBf(213/255, 94/255, 0/255),
     )
 
-    # each field: (symbol, LaTeX label, color, marker shape)
     fields = [
         (:vx,  L"v_x",         okabe_ito[:blue],   :circle),
         (:vy,  L"v_y",         okabe_ito[:orange], :utriangle),
@@ -30,10 +37,8 @@ let
         (:σzz, L"\sigma_{zz}", okabe_ito[:vermil], :diamond),
     ]
 
-    # colormap for pressure fields, matching the Schmid-vs-New reference figure
     pcmap = Reverse(:matter)
 
-    # --- helper: boxed panel label (A, B, C, ...) in bottom-left corner ----
     function panel_label!(ax, label::AbstractString)
         poly!(ax, Rect(0.03, 0.03, 0.10, 0.10);
             space = :relative,
@@ -51,13 +56,9 @@ let
         )
     end
 
-    # --- helper: format a number for LaTeX display --------------------------
     fmtnum(x) = @sprintf("%.3g", x)
 
-    # --- helper: white two-column parameter list, bottom-right of axis ------
     function param_list!(ax, params)
-        # NOTE: assumes the same field order used elsewhere in your codebase
-        # (see analytics_schmid_ellipse / Schmid-vs-New reference script):
         # ηm, ηi, ξm, ξi, ri, r2, t, α, sc, ε̇, γ̇, ζ̇, ε̇zz
         ηm, ηi, ξm, ξi, ri, r2, t, α, sc, ε̇, γ̇, ζ̇, ε̇zz = params
         plist = [
@@ -115,22 +116,14 @@ let
 
         fig = Figure()
 
-        # =====================================================================
-        # Row 1: pressure field, ε_zz = 0 (left) vs full oop solution (right)
-        # =====================================================================
-
         f_anal_field = oop_geometry == :circular ? analytics_circle : analytics_ellipse
 
-        # -- Case A: ε_zz = 0 (Duretz2026_8_zeroop) ---------------------------
         params_ezz0 = preset(test_ezz0, oop_geometry)
         V0, P0, σ0, X0 = Stokes2D(nc_field, test_ezz0, params_ezz0, f_anal_field)
 
-        # -- Case B: full solution, as-is (Duretz2026_7_oop) ------------------
         params_full = preset(test, oop_geometry)
         V1, P1, σ1, X1 = Stokes2D(nc_field, test, params_full, f_anal_field)
 
-        # shared colorrange across BOTH pressure panels, so they're directly
-        # comparable (same style as the shared colorbar in the Schmid figure)
         clim = extrema((extrema(P0)..., extrema(P1)...))
 
         ax1 = Axis(fig[1,1],
@@ -154,14 +147,9 @@ let
 
         hideydecorations!(ax2, grid = false)
 
-        # single shared colorbar for both pressure panels
         Colorbar(fig[1,3], hm1, label = L"p", labelsize = 38, ticklabelsize = 24)
 
         linkaxes!(ax1, ax2)
-
-        # =====================================================================
-        # Row 2: convergence panels (unchanged logic, shifted down one row)
-        # =====================================================================
 
         plots = []
         labels = []
@@ -260,7 +248,7 @@ let
         fig
     end
 
-    save("./figures/convergence_oop.png",fig,px_per_unit=2)
+    save("./figures/Fig10_OOP.png",fig,px_per_unit=2)
 
     display(fig)
 

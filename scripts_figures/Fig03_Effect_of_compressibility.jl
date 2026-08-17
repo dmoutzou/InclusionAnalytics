@@ -1,6 +1,7 @@
-#Include packages and scripts
+# Include packages and scripts
 using ExactFieldSolutions
-include("src/InclusionAnalytics.jl")
+include("../src/InclusionAnalytics.jl")
+
 
 define_params(params) = (
     ηm=params.ηm, ηi=params.ηi, ξm=params.ξm, ξi=params.ξi,
@@ -44,7 +45,7 @@ let
     scale = 2 / Lx                          
     xc_p, yc_p = scale .* X.xc, scale .* X.yc
 
-    base   = preset(:Duretz2026_1_ps, geometry)
+    base   = preset(:Moutzouris2026_1_ps, geometry)
     ξvals  = [0.1, 1.0e0, 1.0e3, 1.0e8]     
     incomp = 1.0e8                          # threshold to label as ->infty
 

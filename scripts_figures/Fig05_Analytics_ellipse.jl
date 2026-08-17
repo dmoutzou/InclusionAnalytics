@@ -1,6 +1,6 @@
-#Include packages and scripts
+# Include packages and scripts
 using ExactFieldSolutions
-include("src/InclusionAnalytics.jl")
+include("../src/InclusionAnalytics.jl")
 
 define_params(params) = (
     ηm=params.ηm, ηi=params.ηi, ξm=params.ξm, ξi=params.ξi,
@@ -40,23 +40,22 @@ function param_lines(params)
 end
 
 let
-    geometry = :circular
-    f_anal   = analytics_circle
+    geometry = :elliptical
+    f_anal   = analytics_ellipse
     nc       = 501
 
     Lx, Ly = 1.0, 1.0
     X      = make_grid(nc; Lx=Lx, Ly=Ly)
 
-    # cosmetic axis rescale to [-1, 1] 
     scale = 2 / Lx
     xc_p, yc_p = scale .* X.xc, scale .* X.yc
 
     # four Duretz forcing cases
     cases = [
-        (:Duretz2026_1_ps,   L"\mathrm{Pure\ shear}"),
-        (:Duretz2026_2_ss,   L"\mathrm{Simple\ shear}"),
-        (:Duretz2026_3_exp,  L"\mathrm{Expansion}"),
-        (:Duretz2026_4_comp, L"\mathrm{Compaction}"),
+        (:Moutzouris2026_1_ps,   L"\mathrm{Pure\ shear}"),
+        (:Moutzouris2026_2_ss,   L"\mathrm{Simple\ shear}"),
+        (:Moutzouris2026_3_exp,  L"\mathrm{Expansion}"),
+        (:Moutzouris2026_4_comp, L"\mathrm{Compaction}"),
     ]
 
     fig  = Figure(size = (1300, 1250), fontsize = 18)
@@ -91,20 +90,21 @@ let
         px, py, pu, pv = quiver_arrays(f_anal, params)
         vmax = maximum(hypot.(pu, pv))
         ls   = vmax == 0 ? 0.0 : 0.8 * (2*0.46*scale/14) / vmax
-        acol = test == :Duretz2026_4_comp ? :white : :black
+        acol = test == :Moutzouris2026_4_comp ? :white : :black
         arrows2d!(ax, scale .* px, scale .* py, pu, pv; lengthscale = ls,
                   tiplength = 7, tipwidth = 7, shaftwidth = 1.0, color = acol)
     end
 
     colgap!(fig.layout, 8)
     rowgap!(fig.layout, 5)
-    rowgap!(fig.layout, 2, 28)   # extra space between the two panel rows
-    colgap!(fig.layout, 2, 32)   # gap between the two panel columns
+    rowgap!(fig.layout, 2, 28)  
+    colgap!(fig.layout, 2, 32)   
 
     #display(fig)
 
     mkpath("figures")
-    fname = "./figures/Fig04_Analytics_circle.png"
+    fname = "./figures/Fig05_Analytics_ellipse.png"
     save(fname, fig, px_per_unit = 2)
     println("Saved: $fname")
+    fig
 end
