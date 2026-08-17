@@ -1,18 +1,29 @@
-using InclusionAnalytics
-using CairoMakie, MathTeXEngine, StaticArrays, Statistics
+#Include packages and scripts
+using ExactFieldSolutions
+include("src/InclusionAnalytics.jl")
+
+#Change "geometry" to elliptical to obtain Fig09
+
+define_params(params) = (
+    ηm=params.ηm, ηi=params.ηi, ξm=params.ξm, ξi=params.ξi,
+    ri=params.r2, t=params.t, α=params.α,
+    ε̇=params.ε̇, γ̇=params.γ̇, ζ̇=params.ζ̇, ε̇zz=params.ε̇zz,
+)
+analytics_circle(X; params)  = Stokes2D_Moutzouris_circle(X;  params=define_params(params))
+analytics_ellipse(X; params) = Stokes2D_Moutzouris_ellipse(X; params=define_params(params))
 
 # Convergence study: mean error vs resolution for all four tests, for either
 # a circular or an elliptical inclusion.
+#Change "geometry" to elliptical to obtain Fig09
 let
-    geometry = :elliptical     # :circular | :elliptical
+    geometry = :circular     # :circular | :elliptical
     tests    = [:Duretz2026_1_ps, :Duretz2026_2_ss, :Duretz2026_3_exp, :Duretz2026_4_comp]
     titles   = ["Pure Shear", "Simple Shear", "Expansion", "Compaction"]
     nc_list  = [101, 201, 401, 501]
     f_anal   = geometry==:circular ? analytics_circle : analytics_ellipse
 
-    panel = 500   # side length in px of each (square) axis
+    panel = 500  
 
-    # --- Okabe-Ito colorblind-safe palette (8 colors, using 7 here) --------
     okabe_ito = Dict(
         :orange  => RGBf(230/255, 159/255, 0/255),
         :skyblue => RGBf(86/255, 180/255, 233/255),
@@ -23,7 +34,6 @@ let
         :purple  => RGBf(204/255, 121/255, 167/255),
     )
 
-    # each field: (symbol, LaTeX label, color, marker shape)
     fields = [
         (:vx,  L"v_x",         okabe_ito[:blue],    :circle),
         (:vy,  L"v_y",         okabe_ito[:orange],  :utriangle),
@@ -41,7 +51,7 @@ let
             fontsize = 22,
             figure_padding = 16,
             Axis = (
-                width           = panel,   # fixed square axes -> layout knows
+                width           = panel,   
                 height          = panel,   # the exact size it needs
                 titlesize       = 34,
                 xlabelsize      = 38,
@@ -70,9 +80,6 @@ let
             ax = Axis(fig[row, col];
                       xscale = log10, yscale = log10,
                       title  = titles[k],
-                      # 1/h = inverse grid spacing (cells per unit length),
-                      # with h = L_x/n_c. Log-log, so a slope of -1 is
-                      # first-order convergence.
                       xlabel = L"1/h \;\; ",
                       ylabel = L"\varepsilon")
 
@@ -131,14 +138,19 @@ let
         rowgap!(fig.layout, 10)
         colgap!(fig.layout, 20)
 
-        # Figure size is derived from the fixed axis sizes -> no white space
         resize_to_layout!(fig)
 
         fig
     end
-
-    fname = "./figures/convergence_$(geometry).png"
-    save(fname, fig, px_per_unit = 2)
-    display(fig)
-    println("Saved: $fname")
+    if geometry==:circular
+        fname = "./figures/Fig08_convergence_$(geometry).png"
+        save(fname, fig, px_per_unit = 2)
+        display(fig)
+        println("Saved: $fname")
+    elseif geometry==:elliptical
+        fname = "./figures/Fig09_convergence_$(geometry).png"
+        save(fname, fig, px_per_unit = 2)
+        display(fig)
+        println("Saved: $fname")
+    end
 end

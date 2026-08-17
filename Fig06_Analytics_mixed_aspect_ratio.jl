@@ -1,5 +1,14 @@
-using InclusionAnalytics
-using CairoMakie, MathTeXEngine, StaticArrays, Statistics
+#Include packages and scripts
+using ExactFieldSolutions
+include("src/InclusionAnalytics.jl")
+
+define_params(params) = (
+    ηm=params.ηm, ηi=params.ηi, ξm=params.ξm, ξi=params.ξi,
+    ri=params.r2, t=params.t, α=params.α,
+    ε̇=params.ε̇, γ̇=params.γ̇, ζ̇=params.ζ̇, ε̇zz=params.ε̇zz,
+)
+analytics_circle(X; params)  = Stokes2D_Moutzouris_circle(X;  params=define_params(params))
+analytics_ellipse(X; params) = Stokes2D_Moutzouris_ellipse(X; params=define_params(params))
 
 set_theme!(theme_latexfonts())
 
@@ -16,7 +25,7 @@ let
     f_anal   = analytics_ellipse
     nc       = 501
 
-    # single Duretz forcing case, swept over ellipse aspect ratios t
+    # single case with mixed loading
     test     = :Duretz2026_5_mixed
     tvalues  = [1.01, 2.0, 3.0, 4.0]
 
@@ -24,7 +33,6 @@ let
     ri_phys  = 0.1
 
     # fixed unit box, as in src/Numerics.jl: r1/sc, r2/sc are the ellipse's
-    # normalised semi-axes directly on the [-1, 1] box (physics untouched)
     Lx, Ly = 1.0, 1.0
     X      = make_grid(nc; Lx=Lx, Ly=Ly)
     scale  = 2 / Lx
@@ -38,17 +46,13 @@ let
     params0 = preset(test, geometry)
     ηm, ηi, ξm, ξi, ri, r2, t0, α, sc0, ε̇, γ̇, ζ̇, ε̇zz = params0
 
-    # caption above the panels with every fixed parameter except t (which varies per panel)
     Label(fig[1, 1:ncols],
           L"\mu_h=%$(fmtnum(ηm))\;\;\mu_i=%$(fmtnum(ηi))\;\;\xi_h=%$(fmtnum(ξm))\;\;\xi_i=%$(fmtnum(ξi))\;\;\varepsilon=%$(fmtnum(ε̇))\;\;\gamma=%$(fmtnum(γ̇))\;\;\zeta=%$(fmtnum(ζ̇))\;\;\alpha=%$(fmtnum(α))",
           fontsize = 26, color = :gray25)
 
-    # first pass: gather every panel's pressure field and its params, so all
-    # heatmaps/colorbars can share one colorrange (makes p=0 for the circle-like
-    # t obviously different from the elevated p of the elongated ellipses)
     panels = map(tvalues) do t
         params = preset(test, geometry)
-        r1, r2 = InclusionAnalytics.ellipse_axes(t)
+        r1, r2 = ellipse_axes(t)
         sc     = r2 / ri_phys
         params = merge(params, (t = t, r1 = r1/sc, r2 = r2/sc, sc = sc))
         _, Pa, _ = analytics_stag(f_anal, X, params, geometry)
@@ -66,7 +70,6 @@ let
                   xticklabelsize = 18, yticklabelsize = 18)
         hm = heatmap!(ax, xc_p, yc_p, Pa; colorrange = crange, colormap = cmap)
 
-        # p label only on the last colorbar
         if idx == length(tvalues)
             Colorbar(fig[2, base+2], hm, width = 12, label = L"p", labelsize = 34, ticklabelsize = 18)
         else
@@ -75,12 +78,12 @@ let
     end
 
     colgap!(fig.layout, 8)
-    rowgap!(fig.layout, 1, 4)   # caption sits close to the panels
+    rowgap!(fig.layout, 1, 4)   
 
     #display(fig)
 
     mkpath("figures")
-    fname = "./figures/Aspect_ratio_nc$(nc).png"
+    fname = "./figures/Fig06_Analytics_mixed_aspect_ratio.png"
     save(fname, fig, px_per_unit = 2)
     println("Saved: $fname")
     fig

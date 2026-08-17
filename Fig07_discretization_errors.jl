@@ -1,7 +1,16 @@
-using InclusionAnalytics
-using CairoMakie, MathTeXEngine, StaticArrays, Statistics, Printf
+#Include packages and scripts
+using ExactFieldSolutions
+include("src/InclusionAnalytics.jl")
 
-# Difference (numerics - analytics) for three forcing cases, side by side.
+define_params(params) = (
+    ηm=params.ηm, ηi=params.ηi, ξm=params.ξm, ξi=params.ξi,
+    ri=params.r2, t=params.t, α=params.α,
+    ε̇=params.ε̇, γ̇=params.γ̇, ζ̇=params.ζ̇, ε̇zz=params.ε̇zz,
+)
+analytics_circle(X; params)  = Stokes2D_Moutzouris_circle(X;  params=define_params(params))
+analytics_ellipse(X; params) = Stokes2D_Moutzouris_ellipse(X; params=define_params(params))
+
+# Difference (numerics - analytics) for three cases.
 #   rows    : V_x, V_y, P
 #   columns : pure shear, simple shear, mixed
 let
@@ -16,14 +25,12 @@ let
         (:Duretz2026_5_mixed, L"\mathrm{Mixed}"),
     ]
 
-    # --- run every case; keep the error fields, the normalised grid and the params
     results = map(cases) do (test, _)
         params     = preset(test, geometry)
         V, P, σ, X = Stokes2D(nc, test, params, f_anal)
         Va, Pa, σa = analytics_stag(f_anal, X, params, geometry)
         Ve, Pe, σe = errors_stag(V, P, σ, Va, Pa, σa)
 
-        # coordinate normalisation: map the box onto [-1, 1] (physics untouched)
         scale = 2 / (X.xv[end] - X.xv[1])
         g = (xv  = scale .* X.xv,  yv  = scale .* X.yv,
              xc  = scale .* X.xc,  yc  = scale .* X.yc,
@@ -34,12 +41,10 @@ let
 
     row_names = [L"u_x", L"u_y", L"P"]
 
-    # staggered grid for each row
     coords(g, row) = row == 1 ? (g.xv,  g.yce) :
                      row == 2 ? (g.xce, g.yv)  :
                                 (g.xc,  g.yc)
 
-    # parameter set, split over several lines (one text! call per line)
     param_lines(p) = [
         L"\mu_h=%$(fmtnum(p.ηm))\;\;\mu_i=%$(fmtnum(p.ηi))",
         L"\xi_h=%$(fmtnum(p.ξm))\;\;\xi_i=%$(fmtnum(p.ξi))",
@@ -47,14 +52,13 @@ let
         L"t=%$(fmtnum(p.t))\;\;\alpha=%$(fmtnum(p.α))",
     ]
 
-    fs     = 23   # base font size
-    fs_lbl = 32   # column titles / axis labels
-    fs_ann = 14   # parameter annotation
+    fs     = 23   
+    fs_lbl = 32   
+    fs_ann = 14   
 
     set_theme!(theme_latexfonts())
     fig = Figure(size = (1500, 1200), fontsize = fs)
 
-    # column titles, spanning [axis | colorbar]
     for (col, (_, title)) in enumerate(cases)
         Label(fig[0, 2col-1:2col], title, tellwidth = false, fontsize = fs_lbl)
     end
@@ -64,8 +68,6 @@ let
         fld    = results[col].fields[row]
         gx, gy = coords(g, row)
 
-        # ticks exclude the endpoints ±1: those sit on the shared edge between
-        # stacked axes and would collide with the neighbouring panel's labels
         ax = Axis(fig[row, 2col-1], aspect = DataAspect(),
                   xlabel = L"x", ylabel = L"y",
                   xlabelsize = fs_lbl, ylabelsize = fs_lbl,
@@ -74,7 +76,6 @@ let
 
         hm = heatmap!(ax, gx, gy, fld; colormap = (Reverse(:matter), 1))
 
-        # parameter set + resolution in the bottom corners of the pressure row only
         if row == length(row_names)
             txt = param_lines(results[col].params)
             x0, y0, dy = -0.95, -0.95, 0.11   # box is [-1, 1] after normalisation
@@ -103,7 +104,7 @@ let
 
     # Save figure
     mkpath("figures")
-    fname = "./figures/differences_$(geometry)_nc$(nc).png"
+    fname = "./figures/Fig07_discretization_errors.png"
     save(fname, fig, px_per_unit = 2)
     println("Saved: $fname")
     fig

@@ -20,7 +20,7 @@ Symbolics = "0c5d862f-8b57-4792-8d23-62f2024744c7"
 [compat]
 BenchmarkTools = "1.8.0"
 CairoMakie = "0.15.12"
-ExactFieldSolutions = "0.1.9"
+ExactFieldSolutions = "0.2.2"
 ForwardDiff = "1.4.1"
 JLD2 = "0.6.4"
 LinearAlgebra = "1.11.0"

@@ -1,10 +1,19 @@
-using InclusionAnalytics, CairoMakie, MathTeXEngine, StaticArrays, Statistics, Printf
+#Include packages and scripts
 using ExactFieldSolutions
+include("src/InclusionAnalytics.jl")
+
+define_params(params) = (
+    ηm=params.ηm, ηi=params.ηi, ξm=params.ξm, ξi=params.ξi,
+    ri=params.r2, t=params.t, α=params.α,
+    ε̇=params.ε̇, γ̇=params.γ̇, ζ̇=params.ζ̇, ε̇zz=params.ε̇zz,
+)
+analytics_circle(X; params)  = Stokes2D_Moutzouris_circle(X;  params=define_params(params))
+analytics_ellipse(X; params) = Stokes2D_Moutzouris_ellipse(X; params=define_params(params))
 
 function analytics_schmid_ellipse(X; params)
     ηm, ηi, ξm, ξi, ri, r2, t, α, sc, ε̇, γ̇, ζ̇, ε̇zz = params
     mc  = ηi / ηm
-    Ζ   = InclusionAnalytics.to_zeta(sc .* X)
+    Ζ   = to_zeta(sc .* X)
     sol = Analytics_Schmid2003(Ζ; ηm=ηm, mc=mc, γ̇=γ̇, ε̇=ε̇, α=α, t=t)
     return (V   = @SVector([sol.V[1]/sc, sol.V[2]/sc]),
             p   = sol.p,
@@ -23,8 +32,6 @@ end
 let
     nc = 501
 
-    # fixed unit box, as in src/Numerics.jl: r1/sc, r2/sc are the ellipse's
-    # normalised semi-axes directly on the [-1, 1] box (physics untouched)
     Lx, Ly = 1.0, 1.0
     scale  = 2 / Lx
 
@@ -85,11 +92,11 @@ let
         hm2 = heatmap!(ax2, xx, yy, new;  colorrange=clim, colormap=cmap)
         hm3 = heatmap!(ax3, xx, yy, diff;                  colormap=cmap)
 
-        # one shared colorbar for BOTH pressure panels -> clearly the same field p
+        # shared colorbar
         Colorbar(fig[row,3], hm1, label = L"p", labelsize = 44, ticklabelsize = 20)
         Colorbar(fig[row,5], hm3, label = L"\log_{10}\,|\Delta p|", labelsize = 31, ticklabelsize = 20)
 
-        # ---- parameters inside the first plot (upright, white, two columns) ----
+        # parameters inside the first plot 
         if row == 1
             pηm, pηi, pξm, pξi, pri, pr2, pt, pα, psc, pε̇, pγ̇, pζ̇, pε̇zz = params_e
             plist = [
@@ -127,8 +134,8 @@ let
 
     colgap!(fig.layout, 10)
     rowgap!(fig.layout, 10)
-    colgap!(fig.layout, 3, 28)   # separate the difference group from the pressure pair
+    colgap!(fig.layout, 3, 28)   
 
-    save("figures/Schmid_vs_New_solution.png", fig; px_per_unit = 200/96)
+    save("figures/Fig02_SchmidVsMoutzouris.png", fig; px_per_unit = 200/96)
     fig
 end
