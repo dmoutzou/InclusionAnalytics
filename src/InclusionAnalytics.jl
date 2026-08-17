@@ -1,20 +1,7 @@
-module InclusionAnalytics
-
-using StaticArrays, Printf, Statistics, LinearAlgebra
-
+#Load packages and scripts
+using CairoMakie, MathTeXEngine, Statistics, Printf, StaticArrays, LinearAlgebra
 include("PhysicalParameters.jl")
-export preset
-
-include("Analytics.jl")
-export f_anal, analytics_circle, analytics_ellipse, Analytics_Schmid2003
-
-include("Numerics.jl")
-export Stokes2D, f_anal
-
 include("AnalyticsStagerredGrid.jl")
-export analytics_stag, errors_stag
-
+include("Numerics.jl")
 include("PlotUtils.jl")
-export fmtnum
-
-end
+include("Analytics.jl")
