@@ -97,7 +97,7 @@ let
                   tiplength = 7, tipwidth = 7, shaftwidth = 1.0, color = acol)
     end
 
-    colgap!(fig.layout, 8)
+    colgap!(fig.layout, 15)
     rowgap!(fig.layout, 5)
     rowgap!(fig.layout, 2, 28)   # extra space between the two panel rows
     colgap!(fig.layout, 2, 32)   # gap between the two panel columns

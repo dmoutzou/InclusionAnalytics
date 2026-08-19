@@ -78,7 +78,7 @@ let
         end
     end
 
-    colgap!(fig.layout, 8)
+    colgap!(fig.layout, 15)
     rowgap!(fig.layout, 1, 4)   
 
     #display(fig)

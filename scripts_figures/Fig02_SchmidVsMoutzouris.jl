@@ -7,18 +7,24 @@ define_params(params) = (
     ri=params.r2, t=params.t, α=params.α,
     ε̇=params.ε̇, γ̇=params.γ̇, ζ̇=params.ζ̇, ε̇zz=params.ε̇zz,
 )
-analytics_circle(X; params)  = Stokes2D_Moutzouris_circle(X;  params=define_params(params))
+
+define_params_schmid_circle(params) = (
+    mm=params.ηm, mc=params.ηi, rc=params.r1, gr=params.γ̇, er=params.ε̇,
+)
+
+analytics_circle(X;  params) = Stokes2D_Moutzouris_circle(X;  params=define_params(params))
 analytics_ellipse(X; params) = Stokes2D_Moutzouris_ellipse(X; params=define_params(params))
 
+function analytics_schmid_circle(X; params)
+    x   = @SVector [X[1], X[2]]
+    sol = Stokes2D_Schmid2003_circle(x; params=define_params_schmid_circle(params))
+    return (V=sol.V, p=sol.p, τ=sol.τ, τzz=0.0)
+end
+
 function analytics_schmid_ellipse(X; params)
-    ηm, ηi, ξm, ξi, ri, r2, t, α, sc, ε̇, γ̇, ζ̇, ε̇zz = params
-    mc  = ηi / ηm
-    Ζ   = to_zeta(sc .* X)
-    sol = Analytics_Schmid2003(Ζ; ηm=ηm, mc=mc, γ̇=γ̇, ε̇=ε̇, α=α, t=t)
-    return (V   = @SVector([sol.V[1]/sc, sol.V[2]/sc]),
-            p   = sol.p,
-            τ   = sol.τ,
-            τzz = 0.0)
+    x   = @SVector [X[1], X[2]]
+    sol = Stokes2D_Schmid2003_ellipse(x; params=define_params(params))
+    return (V=sol.V, p=sol.p, τ=sol.τ, τzz=0.0)
 end
 
 function make_grid(nc; Lx=1.0, Ly=1.0)
@@ -41,15 +47,8 @@ let
     Xc       = make_grid(nc; Lx=Lx, Ly=Ly)
     xc_c, yc_c = scale .* Xc.xc, scale .* Xc.yc
 
-    _, Pnew_circ, _ = analytics_stag(analytics_circle, Xc, params_c, geom_c)
-
-    #Schmid (ExactFieldSolutions)
-    ηm, ηi, ξm, ξi, ri, r2, t, α, sc, ε̇, γ̇, ζ̇, ε̇zz = params_c
-    ps_c = (mm=ηm, mc=ηi, rc=ri, gr=γ̇, er=ε̇)
-    Psch_circ = similar(Pnew_circ)
-    for j in axes(Psch_circ,2), i in axes(Psch_circ,1)
-        Psch_circ[i,j] = Stokes2D_Schmid2003(@SVector([Xc.xc[i], Xc.yc[j]]); params=ps_c).p
-    end
+    _, Pnew_circ, _ = analytics_stag(analytics_circle,        Xc, params_c, geom_c)
+    _, Psch_circ, _ = analytics_stag(analytics_schmid_circle, Xc, params_c, geom_c)
 
     #ellipse
     geom_e   = :elliptical
@@ -96,19 +95,18 @@ let
         Colorbar(fig[row,3], hm1, label = L"p", labelsize = 44, ticklabelsize = 20)
         Colorbar(fig[row,5], hm3, label = L"\log_{10}\,|\Delta p|", labelsize = 31, ticklabelsize = 20)
 
-        # parameters inside the first plot 
+        # parameters inside the first plot
         if row == 1
-            pηm, pηi, pξm, pξi, pri, pr2, pt, pα, psc, pε̇, pγ̇, pζ̇, pε̇zz = params_e
             plist = [
-                L"\mathrm{\mu_h = %$(fmtnum(pηm))}",
-                L"\mathrm{\mu_i = %$(fmtnum(pηi))}",
-                L"\mathrm{\xi_h = %$(fmtnum(pξm))}",
-                L"\mathrm{\xi_i = %$(fmtnum(pξi))}",
-                L"\mathrm{\varepsilon = %$(fmtnum(pε̇))}",
-                L"\mathrm{\gamma = %$(fmtnum(pγ̇))}",
-                L"\mathrm{\zeta = %$(fmtnum(pζ̇))}",
-                L"\mathrm{\alpha = %$(fmtnum(pα))}",
-                L"\mathrm{t = %$(fmtnum(pt))}",
+                L"\mathrm{\mu_h = %$(fmtnum(params_e.ηm))}",
+                L"\mathrm{\mu_i = %$(fmtnum(params_e.ηi))}",
+                L"\mathrm{\xi_h = %$(fmtnum(params_e.ξm))}",
+                L"\mathrm{\xi_i = %$(fmtnum(params_e.ξi))}",
+                L"\mathrm{\varepsilon = %$(fmtnum(params_e.ε̇))}",
+                L"\mathrm{\gamma = %$(fmtnum(params_e.γ̇))}",
+                L"\mathrm{\zeta = %$(fmtnum(params_e.ζ̇))}",
+                L"\mathrm{\alpha = %$(fmtnum(params_e.α))}",
+                L"\mathrm{t = %$(fmtnum(params_e.t))}",
             ]
             col1, col2 = plist[1:5], plist[6:end]
             dy = 0.075
@@ -133,8 +131,8 @@ let
     end
 
     colgap!(fig.layout, 10)
-    rowgap!(fig.layout, 10)
-    colgap!(fig.layout, 3, 28)   
+    rowgap!(fig.layout, 18)
+    colgap!(fig.layout, 3, 28)
 
     save("figures/Fig02_SchmidVsMoutzouris.png", fig; px_per_unit = 200/96)
     fig
